@@ -33,7 +33,7 @@
         <section id="main_content">
           <p>Mirorr implement a robust multimodal image registration method that is based on local correlations computed using a block-matching approach. Both rigid and affine transformation models are available. By default, Mirorr benefits from a half-way space definition and is inverse-consistent for most practical purpose. That means that the order of input images on the command line has a notably reduced effect on the end result, simplifying analysis, reducing opportunities for user error, and increasing robustness. This algorithm has been extensively tested for CT-MR, MR-MR and MR-PET registrations, using pelvis and head/brain datasets. </p>
 
-<p>This software has been developed by <a href="https://github.com/drhenault">David Rivest-Hénault</a>, Nick Dowson, and a team of researchers from <a href="http://www.csiro.au/">CSIRO</a>'s <a href="http://aehrc.com/">The Australian E-Health Research Centre</a>, see AUTHORS.txt for more details, and is made available under the terms of a liberal open source license, see LICENSE.txt.</p>
+<p>This software has been developed by <a href="https://github.com/drhenault">David Rivest-Hénault</a>, <a href="http://baconmockup.com/600/800/">Nick Dowson</a>, and a team of researchers from <a href="http://www.csiro.au/">CSIRO</a>'s <a href="http://aehrc.com/">The Australian E-Health Research Centre</a>, see AUTHORS.txt for more details, and is made available under the terms of a liberal open source license, see LICENSE.txt.</p>
 
 <p>This is the main web page for CSIRO Mirorr. </p>
 
@@ -46,6 +46,7 @@
 <li><a href="http://aehrc.github.io/Mirorr/#building-the-program">BUILDING THE PROGRAM</a></li>
 <li><a href="http://aehrc.github.io/Mirorr/#user-manual-and-examples">USER MANUAL AND EXAMPLES</a></li>
 <li><a href="http://aehrc.github.io/Mirorr/#frequently-asked-questions-faq">FREQUENTLY ASKED QUESTIONS (FAQ)</a></li>
+<li><a href="reporting-an-issue">REPORTING AN ISSUE</a></li>
 </ul>
 
 <h1>
@@ -53,7 +54,7 @@
 
 <p>Mirorr is the reference implementation for the Mirror and SymMirorr methods described in:</p>
 
-<p>David Rivest-Henault, Nicholas Dowson, Peter B. Greer, Jurgen Fripp, and Jason Dowling "Robust inverse-consistent affine CT-MR registration in MRI-assisted and MRI-alone prostate radiation therapy." Journal (In press), 2015.</p>
+<p>David Rivest-Hénault, Nicholas Dowson, Peter B. Greer, Jurgen Fripp, and Jason Dowling <strong>"Robust inverse-consistent affine CT-MR registration in MRI-assisted and MRI-alone prostate radiation therapy."</strong> Journal (In press), 2015.</p>
 
 <p>If you use this program for scientific research or other related work, we would appreciate if you could cite the paper mentioned above.</p>
 
@@ -94,12 +95,12 @@
 
 <p>If you really want to use the non inverse-consistent <em>Mirorr</em>, run the program as follows:</p>
 
-<div class="highlight highlight-bash"><pre>mirorr --reg-mode classic   [other program arguments]</pre></div>
+<div class="highlight highlight-bash"><pre>mirorr --reg-mode classic [other program arguments]</pre></div>
 
 <p>Otherwise, to use <em>SymMirorr</em>, run the program as follows:</p>
 
 <div class="highlight highlight-bash"><pre>mirorr --reg-mode symmetric [other program arguments]  <span class="pl-c"># or simply:</span>
-mirorr --reg-mode symmetric [other program arguments]</pre></div>
+mirorr [other program arguments]</pre></div>
 
 <h2>
 <a id="getting-help" class="anchor" href="#getting-help" aria-hidden="true"><span class="octicon octicon-link"></span></a>Getting help</h2>
@@ -107,6 +108,8 @@ mirorr --reg-mode symmetric [other program arguments]</pre></div>
 <p>Mirorr as a relatively extensive help page, and this is where you should start searching:</p>
 
 <div class="highlight highlight-bash"><pre>mirorr --help</pre></div>
+
+<p>If you can't find what you're looking for, feel free to contact the corresponding author indicated in the paper.</p>
 
 <h2>
 <a id="very-quick-start" class="anchor" href="#very-quick-start" aria-hidden="true"><span class="octicon octicon-link"></span></a>Very quick start</h2>
@@ -125,6 +128,11 @@ mirorr --reg-mode symmetric [other program arguments]</pre></div>
 <li><p><strong>Mirorr is still slow.</strong> Sometimes, the two highest resolution settings of the image pyramid can be vastly redundant. You can try to remove one with the -b and -c options.</p></li>
 <li><p><strong>I want more speed.</strong> If you have a GPU that supports OpenCL (most recent NVIDIA or ATI), you can try our GPU implementation. Compile the program with (USE_OPENCL=ON) and turn on GPU by using the --use-gpu-bm switch.</p></li>
 </ul>
+
+<h1>
+<a id="reporting-an-issue" class="anchor" href="#reporting-an-issue" aria-hidden="true"><span class="octicon octicon-link"></span></a>REPORTING AN ISSUE</h1>
+
+<p>Although the developers are perfect, the source code might not be so. If you encounter an issue, please report it in the <a href="https://github.com/aehrc/Mirorr">GitHub Page</a> (you need a free GitHub account for that). Alternatively, if you are C++ literate, your can ask for a pull request. I will try to respond quickly. Finally, if none of the above works well for you, feel free to contact the corresponding author indicated in the paper.</p>
         </section>
 
         <footer>
