@@ -1,0 +1,10 @@
+David Rivest-Henault : Core development, inverse-consistent implementation, GPU
+Nicholas Dowson      : Initial developpement and support during the inverse-consistent implementation
+Maciej Golebiewski   : Greatly improved GPU implementation
+Jeremy Coatelen      : First GPU implementation
+Daan Broekhuizen     : NPW implementation
+
+Other Acknowledgements:
+Thank you to Peter Greer for supplying test data and advice from a clinical end user perspective.
+Thank you also to Jason Dowling and Jurgen Fripp for advice and support.
+Thank you to Jason Dowling and Soumya Ghose for assisting with testing.
