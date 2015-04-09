@@ -1,0 +1,192 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Mirorr by drhenault</title>
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+    <script src="javascripts/respond.js"></script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!--[if lt IE 8]>
+    <link rel="stylesheet" href="stylesheets/ie.css">
+    <![endif]-->
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+
+  </head>
+  <body>
+      <div id="header">
+        <nav>
+          <li class="fork"><a href="https://github.com/drhenault/Mirorr">View On GitHub</a></li>
+          <li class="downloads"><a href="https://github.com/drhenault/Mirorr/zipball/master">ZIP</a></li>
+          <li class="downloads"><a href="https://github.com/drhenault/Mirorr/tarball/master">TAR</a></li>
+          <li class="title">DOWNLOADS</li>
+        </nav>
+      </div><!-- end header -->
+
+    <div class="wrapper">
+
+      <section>
+        <div id="title">
+          <h1>Mirorr</h1>
+          <p>Mirorr: Multimodal Image Registration using blOck-matching and Robust Regression</p>
+          <hr>
+          <span class="credits left">Project maintained by <a href="https://github.com/drhenault">drhenault</a></span>
+          <span class="credits right">Hosted on GitHub Pages &mdash; Theme by <a href="https://twitter.com/michigangraham">mattgraham</a></span>
+        </div>
+
+        <h1>
+<a id="mirorr-" class="anchor" href="#mirorr-" aria-hidden="true"><span class="octicon octicon-link"></span></a>Mirorr </h1>
+
+<p>This is the main web page for CSIRO Mirorr</p>
+
+<h2>
+<a id="contents" class="anchor" href="#contents" aria-hidden="true"><span class="octicon octicon-link"></span></a>CONTENTS</h2>
+
+<ul>
+<li>DESCRIPTION</li>
+<li>CITATION</li>
+<li>LICENSE</li>
+<li>PRE-REQUISITES - SUMMARY</li>
+<li>PRE-REQUISITES - DETAILED INSTRUCTIONS</li>
+<li>BUILD INSTRUCTION</li>
+<li>TESTING THE BUILD</li>
+<li>FREQUENTLY ASKED QUESTIONS (FAQ)</li>
+</ul>
+
+<h2>
+<a id="description" class="anchor" href="#description" aria-hidden="true"><span class="octicon octicon-link"></span></a>DESCRIPTION</h2>
+
+<blockquote>
+<p>MIRORR: Multimodal Image Registration using blOck-matching and Robust Regression</p>
+</blockquote>
+
+<p>This package contains the source code of Mirorr, which implement both the Mirorr and SymMirorr robust rigid/affine image registration methods presented in:</p>
+
+<p>David Rivest-Henault, Nicholas Dowson, Peter B. Greer, Jurgen Fripp, and Jason Dowling "Robust inverse-consistent affine CT-MR registration in MRI-assisted and MRI-alone prostate radiation therapy." Medical Image Analysis (In press), 2015.</p>
+
+<p>This software has been developed by a team of researchers from <a href="http://www.csiro.au/">CSIRO</a>'s <a href="http://aehrc.com/">The Australian E-Health Research Centre</a>. See AUTHORS.txt for more details.</p>
+
+<p>To use SymMirorr, run the program as follows:  mirorr --reg-mode symmetric [other program arguments]
+To use Mirorr, run the program as follows:     mirorr --reg-mode classic   [other program arguments]</p>
+
+<h3>
+<a id="detailed-description" class="anchor" href="#detailed-description" aria-hidden="true"><span class="octicon octicon-link"></span></a>Detailed description</h3>
+
+<p>The mirorr program implement a robust multimodal image registration method that is based on local correlation computed using a block-matching approach, as described in the paper indicated above. Mirror is, for the moment, only concerned with global registration, that is, using either a rigid or an affine transformation model. When using the default parameter set (--reg-mode symmetric), the registration method benefits from a half-way space definition to gain inverse-consistency high degree. That means that the order of input images on the command line has a notably reduced effect on the end result, simplifying analysis, and increasing robustness.</p>
+
+<p>This algorithm has been extensively tested for CT-MR, MR-MR and MR-PET registrations.</p>
+
+<h2>
+<a id="citation" class="anchor" href="#citation" aria-hidden="true"><span class="octicon octicon-link"></span></a>CITATION</h2>
+
+<p>If you use this program for scientific research, we would appreciate if you could cite the paper mentioned in the Description section, above.</p>
+
+<h2>
+<a id="license" class="anchor" href="#license" aria-hidden="true"><span class="octicon octicon-link"></span></a>LICENSE</h2>
+
+<p>Copyright (c) 2009-15 CSIRO. All rights reserved.</p>
+
+<p>For complete copyright, license and disclaimer of warranty information see LICENSE.txt file for details.</p>
+
+<p>This software is distributed WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the above copyright notice for more information.</p>
+
+<h2>
+<a id="pre-requisites---summary" class="anchor" href="#pre-requisites---summary" aria-hidden="true"><span class="octicon octicon-link"></span></a>PRE-REQUISITES - SUMMARY</h2>
+
+<p>The following packages need to be installed to build Mirorr:</p>
+
+<ul>
+<li>CMake</li>
+<li>ITK, v4.X recommanded.</li>
+<li>Boost, components: program_options filesystem system</li>
+</ul>
+
+<h2>
+<a id="pre-requisites---detailed-instructions" class="anchor" href="#pre-requisites---detailed-instructions" aria-hidden="true"><span class="octicon octicon-link"></span></a>PRE-REQUISITES - DETAILED INSTRUCTIONS</h2>
+
+<p>The Mirror application is built using the CMake system. In addition, it depends on several other libraries:</p>
+
+<ul>
+<li><p>The Insight Toolkit, with powerful pipelining, multithreading and
+medical image IO/manipulation routines, and large helpful user community.
+  <a href="http://www.itk.org/ITK/resources/software.html">http://www.itk.org/ITK/resources/software.html</a>
+Note: only versions of ITK 4 or higher are supported.</p></li>
+<li><p>Several Boost C++ libraries: including program_options, shared_ptr,
+timer, array, serialization, property_tree
+  <a href="http://www.boost.org/users/download/">http://www.boost.org/users/download/</a></p></li>
+</ul>
+
+<p>These libraries were selected both because they are useful and because
+they have BSD/MIT style licenses.</p>
+
+<p>All of the libraries will need to be downloaded and installed. In each
+case, their source can be downloaded from the urls listed above and
+compiled based on their respective instructions. </p>
+
+<p>However it is probably more convenient to use your operating system's
+package manager for this purpose. Instructions for Ubuntu are as follows:</p>
+
+<ol>
+<li>First add the neurodebian repository to your package manager so you
+can conveniently get hold of the latest ITK, as described here:</li>
+</ol>
+
+<p><a href="http://neuro.debian.net/">http://neuro.debian.net/</a> 
+e.g. for Ubuntu 12.04: 
+  wget -O- <a href="http://neuro.debian.net/lists/precise.au.full">http://neuro.debian.net/lists/precise.au.full</a> | sudo tee /etc/apt/sources.list.d/neurodebian.sources.list
+  sudo apt-key adv --recv-keys --keyserver hkp://pgp.mit.edu:80 2649A5A9
+  sudo apt-get update</p>
+
+<p>e.g. for Ubuntu 14.04: 
+  wget -O- <a href="http://neuro.debian.net/lists/trusty.au.full">http://neuro.debian.net/lists/trusty.au.full</a> | sudo tee /etc/apt/sources.list.d/neurodebian.sources.list
+  sudo apt-key adv --recv-keys --keyserver hkp://pgp.mit.edu:80 2649A5A9 
+  sudo apt-get update</p>
+
+<ol>
+<li><p>Install the cmake build system and its gui
+sudo apt-get install cmake cmake-curses-gui</p></li>
+<li><p>Install ITK
+sudo apt-get install libinsighttoolkit4-dev</p></li>
+<li><p>Install all the boost libraries
+sudo apt-get install libboost-all-dev</p></li>
+</ol>
+
+<h2>
+<a id="build-instruction" class="anchor" href="#build-instruction" aria-hidden="true"><span class="octicon octicon-link"></span></a>BUILD INSTRUCTION</h2>
+
+<blockquote>
+<p>Assuming you are in the root directory of the package:</p>
+</blockquote>
+
+<ol>
+<li>mkdir build; </li>
+<li>cd build; </li>
+<li>cmake ../Mirorr -DCMAKE_BUILD_TYPE=Release; </li>
+<li>make -j4</li>
+</ol>
+
+<h2>
+<a id="testing-the-build" class="anchor" href="#testing-the-build" aria-hidden="true"><span class="octicon octicon-link"></span></a>TESTING THE BUILD</h2>
+
+<p>cd ../test; 
+./test.sh</p>
+
+<h2>
+<a id="frequently-asked-questions-faq" class="anchor" href="#frequently-asked-questions-faq" aria-hidden="true"><span class="octicon octicon-link"></span></a>FREQUENTLY ASKED QUESTIONS (FAQ)</h2>
+
+<ul>
+<li><p><strong>Mirorr is slow.</strong> Did you forget to define the CMake variable CMAKE_BUILD_TYPE to Release (CMAKE_BUILD_TYPE=Release)? Typical speedup is about 8x. In addition, you can double check that the program is really using all available CPU cores (or ask for more cores on the cluster). It is possible to make the program use a specific number of cores with --nthreads.</p></li>
+<li><p><strong>Mirorr is still slow.</strong> Sometimes, the two highest resolution settings of the image pyramid can be vastly redundant. You can try to remove one with the -b and -c options.</p></li>
+<li><p><strong>I want more speed.</strong> If you have a GPU that supports OpenCL (most recent NVIDIA or ATI), you can try our GPU implementation. Compile the program with (USE_OPENCL=ON) and turn on GPU by using the --use-gpu-bm switch.</p></li>
+</ul>
+      </section>
+
+    </div>
+    <!--[if !IE]><script>fixScale(document);</script><![endif]-->
+    
+  </body>
+</html>
