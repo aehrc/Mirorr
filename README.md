@@ -1,6 +1,8 @@
 Mirorr README
 =============
 
+The main web site for Mirorr is here: http://aehrc.github.io/Mirorr/
+
 This file describes how to compile and test the Mirorr source code. The
 contents of is file are described below.
 

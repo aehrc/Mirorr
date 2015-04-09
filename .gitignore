@@ -1,0 +1,5 @@
+test/output/CT_in_MR-affine.nii.gz
+test/output/CT_in_MR-rigid.nii.gz
+test/output/CT_to_MR-affine.tfm
+test/output/CT_to_MR-rigid.tfm
+
