@@ -122,8 +122,8 @@ BUILD INSTRUCTION
 
 1. mkdir build; 
 2. cd build; 
-3. cmake ../Mirorr -DCMAKE_BUILD_TYPE=Release; 
-4. make -j4
+3. cmake .. -DCMAKE_BUILD_TYPE=Release; 
+4. make
 
 
 TESTING THE BUILD
