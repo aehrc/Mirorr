@@ -86,13 +86,13 @@ ResampleImage(typename TImageType::Pointer image,
 
 template<typename TImageType>
 typename TImageType::Pointer
-ReorientRAIImage(typename TImageType::Pointer image) {
+ReorientARIImage(typename TImageType::Pointer image) {
   typedef typename itk::OrientImageFilter<TImageType, TImageType> TOrientFilter;
 
   typename TOrientFilter::Pointer orienter = TOrientFilter::New();
   orienter->UseImageDirectionOn();
   orienter->SetDesiredCoordinateOrientation(
-      itk::SpatialOrientation::ITK_COORDINATE_ORIENTATION_RAI);
+      itk::SpatialOrientation::ITK_COORDINATE_ORIENTATION_ARI);
   orienter->SetInput(image);
   orienter->Update();
 
@@ -224,10 +224,10 @@ MirorrPyramidWrapper
     std::cerr << "#\n# Warning: Using the experimental --reorient feature.\n";
     std::cerr << "#          Carefully inspecting the result is strongly advised.\n#" << std::endl;
 
-    movingImage = __MirorrPyramidWrapper::ReorientRAIImage<ImageType>(movingImage);
-    fixedImage = __MirorrPyramidWrapper::ReorientRAIImage<ImageType>(fixedImage);
-    movingMask = __MirorrPyramidWrapper::ReorientRAIImage<MaskType>(movingMask);
-    fixedMask = __MirorrPyramidWrapper::ReorientRAIImage<MaskType>(fixedMask);
+    movingImage = __MirorrPyramidWrapper::ReorientARIImage<ImageType>(movingImage);
+    fixedImage = __MirorrPyramidWrapper::ReorientARIImage<ImageType>(fixedImage);
+    movingMask = __MirorrPyramidWrapper::ReorientARIImage<MaskType>(movingMask);
+    fixedMask = __MirorrPyramidWrapper::ReorientARIImage<MaskType>(fixedMask);
   }
 
   //Check if the two images have the same direction matrix and issue a warning if not

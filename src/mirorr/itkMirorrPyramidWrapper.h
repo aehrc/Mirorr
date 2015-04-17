@@ -118,8 +118,8 @@ public:
   void SetMovingMaskName( const std::string & _ss ) {movingMaskName = _ss; }
   //! Do we start by resampling images to 128^3
   void SetDoResampleTo128( bool in ) {do_resample_to_128 = in; }
-  //! Do we attempt to reorient the image in the RAI direction?
-  void SetDoReorientRAI(bool in ) {do_reorient = in;}
+  //! Do we attempt to reorient the image in the ARI direction?
+  void SetDoReorientARI(bool in ) {do_reorient = in;}
 
 
   //!Name of file string fixed image once it has been registered to moving
@@ -185,7 +185,7 @@ private:
   std::string fixedMaskName; //!Name of file storing fixed mask image
   std::string movingMaskName; //!Name of file storing moving mask image
   bool do_resample_to_128; //! Do we start by resampling images to 128^3
-  bool do_reorient; //! Do we attempt to reorient the image in the RAI direction?
+  bool do_reorient; //! Do we attempt to reorient the image in the ARI direction?
 
   ImagePointer movingImage;
   ImagePointer fixedImage;
