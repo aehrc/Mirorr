@@ -146,6 +146,8 @@ public:
   //! Resample the fixed image into another space defined by the input transform
   ImagePointer GetResampledImage( /*typename*/ TransformType::Pointer transform,
       bool resampling_moving_image = false );
+  ImagePointer GetReorientedImage( /*typename*/ TransformType::Pointer transform,
+      bool resampling_moving_image = false );
 
   //! Set the metric for the secondary ITK registration
   void SetSecondaryRegistrationMetricToMMI(); //Mattes mutual information

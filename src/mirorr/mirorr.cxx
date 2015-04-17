@@ -122,11 +122,16 @@ int main( int argc, char* argv[] )
     ("reg-mode", po::value<std::string>()->default_value("symmetric"),
             "Registration mode: classic/symmetric")
     ("do-not-register,R",
-        "Do not run registration, just use transform file to resample the fixed and/or moving image.")
+        "Do not run registration, just use transform file to resample the "
+        "fixed and/or moving image.")
     ("save-fixed", po::value<std::string>()->default_value(""),
-        "Save fixed image (in moving image's space) after registration")
+        "Save fixed image (in moving image's space) after registration. "
+        "If rigid only the direction and origin are updated. No resampling "
+        "is performed.")
     ("save-moving", po::value<std::string>()->default_value(""),
-        "Save moving image (in fixed image's space) after registration")
+        "Save moving image (in fixed image's space) after registration. "
+        "If rigid only the direction and origin are updated. No resampling "
+        "is performed.")
     ("moving-mask,M", po::value<std::string>()->default_value(""),
         "Specify Moving Image")
     ("fixed-mask,F", po::value<std::string>()->default_value(""),
@@ -164,15 +169,19 @@ int main( int argc, char* argv[] )
     ("pyr-start,a", po::value<int>()->default_value(1),
         "First pyramid level to be processed. (-ve numbers count back from max.)")
     ("pyr-switch,b", po::value<int>()->default_value(0), //
-        "Last pyramid level of block matching. Following levels use ITK Mutual info. (-ve numbers count back from max. 0==max)")
+        "Last pyramid level of block matching. Following levels use ITK Mutual "
+        "info. (-ve numbers count back from max. 0==max)")
     ("pyr-end,c", po::value<int>()->default_value(0), //
-        "Last pyramid level to be processed. (-ve numbers count back from max. 0==max)")
+        "Last pyramid level to be processed. (-ve numbers count back from max. "
+        "0==max)")
     ("pyr-num,d", po::value<int>()->default_value(1024),
-         "Number of levels in the pyramid (default is to create as many level as maxDataSize > 32)")
+         "Number of levels in the pyramid (default is to create as many level "
+         "as maxDataSize > 32)")
     ("pyr-min-size,e", po::value<int>()->default_value(32),
          "Minimal image dimension at the first level of the pyramid")
     ("resampling-mode", po::value<std::string>()->default_value("middle"), //valid: basic, middle, max-resolution, max-size
-          "Inner loop resampling mode: basic, middle, max-resolution, max-size, fixed, moving")
+          "Inner loop resampling mode: basic, middle, max-resolution, max-size, "
+          "fixed, moving")
     ("no-bm",
         "Do not use block matching algorithm (primary registration)")
     ("use-itk",
@@ -194,7 +203,9 @@ int main( int argc, char* argv[] )
     ("resample",
         "Resample input image to 128^3 first. Deprecated.") //
     ("reorient",
-            "Reorient the volume in the RAI direction first. Experimental.") //
+            "Reorient the volumes in the RAI direction first, and set to reset "
+            "position with identity directions and zero origin. This enables "
+            "in-place image modification and ability to re-use old transforms.") //
     ("blockmetric", po::value<std::string>()->default_value("nc"), //
         "metric used: normalized correlation (nc), sum of squared differences (sd), "
         "correlation ratio (cr), non-parametric window mutual information (mi)"
@@ -490,6 +501,13 @@ int main( int argc, char* argv[] )
   mirorr.GetRegistrationPyramidObject().GetPyramidScheduleTuner()->SetMinLength(minBlockLength);
   mirorr.GetRegistrationPyramidObject().GetPyramidScheduleTuner()->SetLevelMin( aa );
   mirorr.GetRegistrationPyramidObject().GetPyramidScheduleTuner()->SetLevelMax( cc );
+
+  //Lock switch level to end pyramid level if we're not using itk (default)
+  if( !do_use_itk )
+    bb = cc;
+  else
+    std::cerr<<"WARNING: the use of itk registration is deprecated and will be removed in later versions."<<std::endl;
+
   mirorr.GetRegistrationPyramidObject().SetLevelToChangeMethod( bb );
   mirorr.GetRegistrationPyramidObject().SetUseBlockMatchingAlgorithm( variablesMap.count("no-bm") == 0 );
   mirorr.GetRegistrationPyramidObject().SetUseMutualInformationAlgorithm( do_use_itk );

@@ -91,11 +91,31 @@ ReorientRAIImage(typename TImageType::Pointer image) {
 
   typename TOrientFilter::Pointer orienter = TOrientFilter::New();
   orienter->UseImageDirectionOn();
-  orienter->SetDesiredCoordinateOrientation(itk::SpatialOrientation::ITK_COORDINATE_ORIENTATION_RAI);
+  orienter->SetDesiredCoordinateOrientation(
+      itk::SpatialOrientation::ITK_COORDINATE_ORIENTATION_RAI);
   orienter->SetInput(image);
   orienter->Update();
 
-  return orienter->GetOutput();
+  //=======================================================
+  //ND 16 April 2015: Mod to reset direction to identity to
+  //avoid adverse influence of interpolation artefacts when images are
+  //almost but not quite aligned
+  typename TImageType::Pointer out_image = orienter->GetOutput();
+
+  typename TImageType::DirectionType dir;
+  dir.Fill(0);
+  dir[0][1] = 1;
+  dir[1][0] = 1;
+  dir[2][2] = 1;
+  out_image->SetDirection(dir);
+
+  typename TImageType::PointType origin;
+  origin[0] = 0; origin[1] = 0; origin[2] = 0;
+  out_image->SetOrigin(origin);
+  return out_image;
+  //=======================================================
+
+  //return orienter->GetOutput();
 }
 
 template<typename TMatrix>
@@ -512,8 +532,13 @@ Update()
   // Save the shifted image if requested to by the user
   if( !lastTransformedFixedName.empty() )
   {
-    ImagePointer resampledFixedImage =
-        mirorr.GetResampledImage( dynamic_cast<TransformType*>( transform.GetPointer() ) );
+    ImagePointer resampledFixedImage;
+    if( transformType == "rigid" || transformType == "quat"  )
+      resampledFixedImage =
+          mirorr.GetReorientedImage( dynamic_cast<TransformType*>( transform.GetPointer() ) );
+    else
+      resampledFixedImage =
+          mirorr.GetResampledImage( dynamic_cast<TransformType*>( transform.GetPointer() ) );
 
     typedef itk::ImageFileWriter< ImageType > WriterType;
 
@@ -530,11 +555,21 @@ Update()
 
   }
 
+  //===========================================================================
+
+  //===========================================================================
+
   //And save the shifted image if requested to by the user
   if( !lastTransformedMovingName.empty() )
   {
-    ImagePointer resampledMovingImage =
-        mirorr.GetResampledImage( dynamic_cast<TransformType*>( transform.GetPointer() ), true );
+    ImagePointer resampledMovingImage;
+
+    if( transformType == "rigid" || transformType == "quat"  )
+      resampledFixedImage =
+          mirorr.GetReorientedImage( dynamic_cast<TransformType*>( transform.GetPointer() ), true );
+    else
+      resampledFixedImage =
+          mirorr.GetResampledImage( dynamic_cast<TransformType*>( transform.GetPointer() ), true );
 
     typedef itk::ImageFileWriter< ImageType > WriterType;
 
