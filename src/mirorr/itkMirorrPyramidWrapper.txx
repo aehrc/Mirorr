@@ -565,10 +565,10 @@ Update()
     ImagePointer resampledMovingImage;
 
     if( transformType == "rigid" || transformType == "quat"  )
-      resampledFixedImage =
+      resampledMovingImage =
           mirorr.GetReorientedImage( dynamic_cast<TransformType*>( transform.GetPointer() ), true );
     else
-      resampledFixedImage =
+      resampledMovingImage =
           mirorr.GetResampledImage( dynamic_cast<TransformType*>( transform.GetPointer() ), true );
 
     typedef itk::ImageFileWriter< ImageType > WriterType;
