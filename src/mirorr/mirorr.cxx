@@ -200,8 +200,6 @@ int main( int argc, char* argv[] )
         "line in your script:"
         "\"export CUDA_VISIBLE_DEVICES=`gpu-which | sed 's/\"//g'`\"") //
 #endif
-    ("resample",
-        "Resample input image to 128^3 first. Deprecated.") //
     ("reorient",
             "Reorient the volumes in the RAI direction first, and set to reset "
             "position with identity directions and zero origin. This enables "
@@ -381,7 +379,6 @@ int main( int argc, char* argv[] )
     mirorr.SetMovingMaskName( variablesMap["moving-mask"].as<std::string>() );
     mirorr.SetFixedMaskName( variablesMap["fixed-mask"].as<std::string>() );
     }
-  mirorr.SetDoResampleTo128( variablesMap.count("resample") == true );
   mirorr.SetDoReorientARI( variablesMap.count("reorient") == true );
 
   //Read in the name of the file for the final transformation or create one

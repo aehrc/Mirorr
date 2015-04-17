@@ -54,38 +54,6 @@ ReadImage(std::string image_file_name) {
 
 template<typename TImageType>
 typename TImageType::Pointer
-ResampleImage(typename TImageType::Pointer image,
-              const typename TImageType::SizeType &size,
-              const typename TImageType::SpacingType &spacing,
-              const bool is_nearest = false) {
-  typedef itk::IdentityTransform<double> TransformType;
-  typename TransformType::Pointer transform = TransformType::New();
-
-  //Optionally resample input images to 128^3
-  typedef itk::ResampleImageFilter<TImageType, TImageType> ResampleType;
-  typename ResampleType::Pointer resampler = ResampleType::New();
-  resampler->SetTransform(transform);
-  resampler->SetInput(image);
-
-  resampler->SetSize(size);
-  resampler->SetOutputSpacing(spacing);
-  resampler->SetOutputOrigin(image->GetOrigin());
-  resampler->SetOutputDirection(image->GetDirection());
-  resampler->SetOutputStartIndex(image->GetLargestPossibleRegion().GetIndex());
-
-  if (is_nearest) {
-    typedef itk::NearestNeighborInterpolateImageFunction<TImageType> InterpolatorType;
-    typename InterpolatorType::Pointer interpolator = InterpolatorType::New();
-    resampler->SetInterpolator(interpolator);
-  }
-
-  resampler->Update();
-
-  return resampler->GetOutput();
-}
-
-template<typename TImageType>
-typename TImageType::Pointer
 ReorientARIImage(typename TImageType::Pointer image) {
   typedef typename itk::OrientImageFilter<TImageType, TImageType> TOrientFilter;
 
@@ -199,25 +167,10 @@ MirorrPyramidWrapper
     fixedMask_in->FillBuffer(255);
   }
 
-  //Resample to 128^3 if required
-  if (do_resample_to_128) {
-    //Set the moving and fixed images
-    itk::Size<DIMENSION> size128;
-    size128.Fill(128);
-    SpacingType spacing128 =
-            GetMaxSpacingForResize(movingImage_in, fixedImage_in, size128);
-
-    movingImage = __MirorrPyramidWrapper::ResampleImage<ImageType>(movingImage_in, size128, spacing128);
-    fixedImage = __MirorrPyramidWrapper::ResampleImage<ImageType>(fixedImage_in, size128, spacing128);
-    movingMask = __MirorrPyramidWrapper::ResampleImage<MaskType>(fixedMask_in, size128, spacing128, true);
-    fixedMask = __MirorrPyramidWrapper::ResampleImage<MaskType>(fixedMask_in, size128, spacing128, true);
-  }
-  else {
-    movingImage = movingImage_in;
-    fixedImage = fixedImage_in;
-    movingMask = movingMask_in;
-    fixedMask = fixedMask_in;
-  }
+  movingImage = movingImage_in;
+  fixedImage = fixedImage_in;
+  movingMask = movingMask_in;
+  fixedMask = fixedMask_in;
 
   // Try to re-orient the images
   if (this->do_reorient) {
