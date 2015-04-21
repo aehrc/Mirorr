@@ -24,6 +24,7 @@ PURPOSE.  See the above copyright notice for more information.
 #include <vnl/vnl_vector.h>
 #include <vnl/vnl_matrix.h>
 #include "itkIOUtils.h"
+#include <iomanip>
 
 namespace itk {
 
@@ -50,6 +51,23 @@ ReadImage(std::string image_file_name) {
   typename TImageType::Pointer image = imageFileReader->GetOutput();
 
   return image;
+}
+
+//typedef itk::Image<double, 3> TImageType;
+template< typename TImageType >
+std::ostream & PrintImage( std::ostream & os, typename TImageType::Pointer image )
+{
+  typename TImageType::SizeType size = image->GetLargestPossibleRegion().GetSize();
+  typename TImageType::PointType origin = image->GetOrigin();
+  typename TImageType::SpacingType spacing = image->GetSpacing();
+  typename TImageType::DirectionType dir = image->GetDirection();
+  os<<"<Image> size=["<<size[0]<<" "<<size[1]<<" "<<size[2]<<"], "
+    <<"spacing=["<<std::setprecision(3)<<spacing[0]<<" "<<spacing[1]<<" "<<spacing[2]<<"], "
+    <<"origin=["<<std::setprecision(5)<<origin[0]<<" "<<origin[1]<<" "<<origin[2]<<"], "
+    <<"dir=["<<std::setprecision(3)<<dir[0][0]<<" "<<dir[0][1]<<" "<<dir[0][2]<<"; "
+    <<dir[1][0]<<" "<<dir[1][1]<<" "<<dir[1][2]<<"; "
+    <<dir[2][0]<<" "<<dir[2][1]<<" "<<dir[2][2]<<"];";
+  return os;
 }
 
 template<typename TImageType>
@@ -456,7 +474,12 @@ Update()
   ReadInputTransform( transform, initialTransformName, fixedName,
       invert_output_transform );
 
+  //Display the input image
+
+
   //Register the two images
+  std::cout<<"Loaded  FIXED: "; __MirorrPyramidWrapper::PrintImage<ImageType>(std::cout,fixedImage); std::cout<<"\n";
+  std::cout<<"Loaded MOVING: "; __MirorrPyramidWrapper::PrintImage<ImageType>(std::cout,movingImage); std::cout<<"\n";
   mirorr.SetFixedImage( fixedImage );
   mirorr.SetMovingImage( movingImage );
   mirorr.SetFixedMask( fixedMask );
@@ -486,6 +509,7 @@ Update()
   if( !lastTransformedFixedName.empty() )
   {
     ImagePointer resampledFixedImage;
+    std::cout<<"Resampling FIXED: "; __MirorrPyramidWrapper::PrintImage<ImageType>(std::cout,fixedImage); std::cout<<"\n";
     if( transformType == "rigid" || transformType == "quat"  )
       resampledFixedImage =
           mirorr.GetReorientedImage( dynamic_cast<TransformType*>( transform.GetPointer() ) );
@@ -495,6 +519,7 @@ Update()
 
     typedef itk::ImageFileWriter< ImageType > WriterType;
 
+    std::cout<<"Output FIXED: "; __MirorrPyramidWrapper::PrintImage<ImageType>(std::cout,resampledFixedImage); std::cout<<"\n";
     WriterType::Pointer writer = WriterType::New();
     writer->SetInput( resampledFixedImage );
     writer->SetFileName( lastTransformedFixedName );
@@ -516,6 +541,7 @@ Update()
   if( !lastTransformedMovingName.empty() )
   {
     ImagePointer resampledMovingImage;
+    std::cout<<"Resampling MOVING: "; __MirorrPyramidWrapper::PrintImage<ImageType>(std::cout,movingImage); std::cout<<"\n";
 
     if( transformType == "rigid" || transformType == "quat"  )
       resampledMovingImage =
@@ -523,6 +549,7 @@ Update()
     else
       resampledMovingImage =
           mirorr.GetResampledImage( dynamic_cast<TransformType*>( transform.GetPointer() ), true );
+    std::cout<<"Output MOVING: "; __MirorrPyramidWrapper::PrintImage<ImageType>(std::cout,resampledMovingImage); std::cout<<"\n";
 
     typedef itk::ImageFileWriter< ImageType > WriterType;
 
