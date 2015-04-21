@@ -91,8 +91,12 @@ public:
     do_not_register = false;
     invert_output_transform = false;
     verbosity = 1;
-    do_reorient = true;
+    do_reorient_fixed = false;
+    do_reorient_moving = false;
     program_name = "mirorr";
+    do_force_resample_fixed = false;
+    do_force_resample_moving = false;
+    do_initialise_tfm_to_centre_images = true;
   }
 
   MirorrType & GetRegistrationPyramidObject() { return mirorr; }
@@ -116,15 +120,23 @@ public:
   //!Name of file storing moving mask image
   void SetMovingMaskName( const std::string & _ss ) {movingMaskName = _ss; }
   //! Do we attempt to reorient the image in the ARI direction?
-  void SetDoReorientARI(bool in ) {do_reorient = in;}
-
+  void SetDoReorientFixedInARI(bool in ) {do_reorient_fixed = in;}
+  void SetDoReorientMovingInARI(bool in ) {do_reorient_moving = in;}
 
   //!Name of file string fixed image once it has been registered to moving
   //!image. If empty - no image is returned.
-  void SetLastTransformedFixedName( const std::string & _ss ) {lastTransformedFixedName = _ss; }
+  const std::string & GetLastTransformedFixedName()
+  { return lastTransformedFixedName; }
+  void SetLastTransformedFixedName( const std::string & _ss, bool force_resample = false )
+  { do_force_resample_fixed = force_resample; lastTransformedFixedName = _ss; }
+
   //!Name of file string moving image once fixed image been registered to moving
   //!image. If empty - no image is returned.
-  void SetLastTransformedMovingName( const std::string & _ss ) {lastTransformedMovingName = _ss; }
+  const std::string & GetLastTransformedMovingName()
+  { return lastTransformedMovingName; }
+  void SetLastTransformedMovingName( const std::string & _ss, bool force_resample = false )
+  { do_force_resample_moving = force_resample;  lastTransformedMovingName = _ss; }
+
   /** Name of file storing initial transform. If empty the image
    *  centres are aligned, with no rotation, and a file with the
    *  initial output is saved. */
@@ -132,6 +144,8 @@ public:
   //!Name of file storing final transform out. "final.tfm" by default.
   void SetFinalTransformName( const std::string & _ss ) {finalTransformName = _ss; }
   const std::string & GetFinalTransformName( ) const { return finalTransformName; }
+  void SetDoInitialiseTransformToCentreImages(bool in ) {do_initialise_tfm_to_centre_images = in;}
+
   /**Name of transform type based on corresponding ITK class names
    * e.g. Euler3DTransform, AffineTransform.  The names
    * "rigid","affine" and "translation" are converted to their
@@ -181,7 +195,12 @@ private:
   std::string movingName; //!Name of file storing moving image
   std::string fixedMaskName; //!Name of file storing fixed mask image
   std::string movingMaskName; //!Name of file storing moving mask image
-  bool do_reorient; //! Do we attempt to reorient the image in the ARI direction?
+  bool do_reorient_fixed; //! Do we attempt to reorient fixed image in the ARI direction?
+  bool do_reorient_moving; //! Do we attempt to reorient moving image in the ARI direction?
+  bool do_force_resample_fixed;
+  bool do_force_resample_moving;
+
+  bool do_initialise_tfm_to_centre_images;
 
   ImagePointer movingImage;
   ImagePointer fixedImage;

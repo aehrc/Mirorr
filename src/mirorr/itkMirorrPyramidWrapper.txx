@@ -191,14 +191,19 @@ MirorrPyramidWrapper
   fixedMask = fixedMask_in;
 
   // Try to re-orient the images
-  if (this->do_reorient) {
-    std::cerr << "#\n# Warning: Using the experimental --reorient feature.\n";
-    std::cerr << "#          Carefully inspecting the result is strongly advised.\n#" << std::endl;
+  if (this->do_reorient_fixed) {
+    //std::cerr << "#\n# Warning: Using the experimental --reorient feature.\n";
+    //std::cerr << "#          Carefully inspecting the result is strongly advised.\n#" << std::endl;
+
+    fixedImage = __MirorrPyramidWrapper::ReorientARIImage<ImageType>(fixedImage);
+    fixedMask = __MirorrPyramidWrapper::ReorientARIImage<MaskType>(fixedMask);
+  }
+  if (this->do_reorient_moving) {
+    //std::cerr << "#\n# Warning: Using the experimental --reorient feature.\n";
+    //std::cerr << "#          Carefully inspecting the result is strongly advised.\n#" << std::endl;
 
     movingImage = __MirorrPyramidWrapper::ReorientARIImage<ImageType>(movingImage);
-    fixedImage = __MirorrPyramidWrapper::ReorientARIImage<ImageType>(fixedImage);
     movingMask = __MirorrPyramidWrapper::ReorientARIImage<MaskType>(movingMask);
-    fixedMask = __MirorrPyramidWrapper::ReorientARIImage<MaskType>(fixedMask);
   }
 
   //Check if the two images have the same direction matrix and issue a warning if not
@@ -453,6 +458,7 @@ Update()
   ReadAndResampleImages();
 
   InputTransformType::Pointer transform = CreateAppropriateTransform( transformType );
+  transform->SetIdentity();
   if( verbosity >= 1 )
     std::cout << "Transform Class: " << transform->GetNameOfClass() << std::endl;
 
@@ -462,6 +468,7 @@ Update()
 //    centre[ii] += 0.5*movingImage->GetSpacing()[ii] * movingImage->GetLargestPossibleRegion().GetSize(ii);
 //  transform->SetCenter( centre );
 //  transform->SetIdentity();
+  if( do_initialise_tfm_to_centre_images )
   {
     typedef itk::CenteredTransformInitializer< TransformType, ImageType, ImageType > TransformInitializer;
     TransformInitializer::Pointer initialiser =  TransformInitializer::New();
@@ -509,8 +516,10 @@ Update()
   if( !lastTransformedFixedName.empty() )
   {
     ImagePointer resampledFixedImage;
-    std::cout<<"Resampling FIXED: "; __MirorrPyramidWrapper::PrintImage<ImageType>(std::cout,fixedImage); std::cout<<"\n";
-    if( transformType == "rigid" || transformType == "quat"  )
+    std::cout<<"Transforming FIXED: "; __MirorrPyramidWrapper::PrintImage<ImageType>(std::cout,fixedImage); std::cout<<"\n";
+
+    //Favour reorienting if rigid unless forced
+    if( !do_force_resample_fixed && (transformType == "rigid" || transformType == "quat")  )
       resampledFixedImage =
           mirorr.GetReorientedImage( dynamic_cast<TransformType*>( transform.GetPointer() ) );
     else
@@ -541,9 +550,10 @@ Update()
   if( !lastTransformedMovingName.empty() )
   {
     ImagePointer resampledMovingImage;
-    std::cout<<"Resampling MOVING: "; __MirorrPyramidWrapper::PrintImage<ImageType>(std::cout,movingImage); std::cout<<"\n";
+    std::cout<<"Transforming MOVING: "; __MirorrPyramidWrapper::PrintImage<ImageType>(std::cout,movingImage); std::cout<<"\n";
 
-    if( transformType == "rigid" || transformType == "quat"  )
+    //Favour reorienting if rigid unless forced
+    if( !do_force_resample_moving && (transformType == "rigid" || transformType == "quat")  )
       resampledMovingImage =
           mirorr.GetReorientedImage( dynamic_cast<TransformType*>( transform.GetPointer() ), true );
     else
