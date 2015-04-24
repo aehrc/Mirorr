@@ -1,7 +1,7 @@
 project(NPW)
 
 option(NPW_USE_CUDA "Use NVidia CUDA in NPW" ON)
-option(NPW_USE_OPENGL "Use OpenGL in NPW" OFF)
+option(NPW_USE_OPENGL "Use OpenGL in NPW" ON)
 
 if(NPW_USE_CUDA)
   add_subdirectory(NPWcuda)
