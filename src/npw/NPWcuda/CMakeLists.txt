@@ -87,7 +87,12 @@ find_package(OpenGL REQUIRED)
 find_package(Threads REQUIRED)  # P-Threads
 find_package(CUDA REQUIRED)
 find_package(SDL REQUIRED)
-find_package(cudpp REQUIRED)
+find_package(cudpp CONFIG REQUIRED)
+
+INCLUDE_DIRECTORIES(${CUDA_INCLUDE_DIRS})
+INCLUDE_DIRECTORIES(${CUDA_TOOLKIT_INCLUDE})
+#CUDA_INCLUDE_DIRS ${CUDA_TOOLKIT_INCLUDE
+
 
 #-------------------------------------------------------
 # Compiler flags for relevent platform
@@ -149,9 +154,7 @@ SET(NPW_CUDA_INCLUDE_DIRS_BUILD_TREE ${NPW_CUDA_BINARY_DIR}/src/ ${NPW_CUDA_SOUR
 INCLUDE_DIRECTORIES(
     ${NPW_CUDA_CORE_INCLUDES}
     ${CUDA_TOOLKIT_INCLUDE}
-    ${milxview_SOURCE_DIR}/lib/common/src/milxRegistration/NPWopengl
-    ${milxview_SOURCE_DIR}/lib/common/src/milxRegistration/NPWcuda/ext-cudpp_1.1.1/cudpp/include
-    ${milxview_SOURCE_DIR}/lib/common/src/milxRegistration/NPWcuda/ext-cudpp_1.1.1/common/inc
+    ${CMAKE_CURRENT_SOURCE_DIR}/../NPWopengl
 )
 
 SET( SRCS_CUDA

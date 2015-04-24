@@ -11,6 +11,7 @@
 #include "NPWCudaVertexBufferPointer.h"
 #include <cudpp.h>
 #include <stdio.h>
+#include <cuda.h>
 
 
 __global__ void GetTriangleCountKernel(
@@ -286,6 +287,10 @@ bool RenderGeometryDirectlyFromCUDA(
     NPWCudaDataPointer<int> * vertexOffsets =
                 new NPWCudaDataPointer<int>( geoUnitCount, 0, true,true );
 
+    // DRH: needed for cudpp version >= 2.2
+    CUDPPHandle theCudpp;
+    cudppCreate(&theCudpp);
+
     CUDPPConfiguration config;
     config.op = CUDPP_ADD;
     config.datatype = CUDPP_INT;
@@ -293,7 +298,8 @@ bool RenderGeometryDirectlyFromCUDA(
     config.options = CUDPP_OPTION_FORWARD | CUDPP_OPTION_EXCLUSIVE;
 
     CUDPPHandle scanplan = 0;
-    CUDPPResult result = cudppPlan(&scanplan, config, geoUnitCount, 1, 0);
+    //CUDPPResult result = cudppPlan(&scanplan, config, geoUnitCount, 1, 0); // Correct in cudpp 1.1.1
+    CUDPPResult result = cudppPlan(theCudpp, &scanplan, config, geoUnitCount, 1, 0); // Correct in cudpp 1.1.1
 
 
     if (CUDPP_SUCCESS != result)
