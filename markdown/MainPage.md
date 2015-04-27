@@ -1,4 +1,4 @@
-Mirorr is a software developed at [The Australian E-Health Research Centre](http://aehrc.com/) for **3D rigid/affine** medical image registration that implements a **robust** and **inverse-consistent** algorithm. Mirror is a command line application that is relatively easy to use. Being robust, it is suitable for both **mono- and multi-modal** applications. Inverse-consistency means that transform computed from image A to image B is **precisely the inverse** of the one computed from image B to image A. That means that it is not necessary to manage situation like the one illustrated below, simplifying your pipeline.
+Mirorr is software which has been developed at [The Australian E-Health Research Centre](http://aehrc.com/) for **3D rigid/affine** medical image registration that implements a **robust** and **inverse-consistent** algorithm. Mirror is a command line application that is relatively easy to use. Being robust, it is suitable for both **mono- and multi-modal** applications. Inverse-consistency means that a transform computed from image A to image B is **precisely the inverse** of the one computed from image B to image A. That means that it is not necessary to manage situations like the one illustrated below, simplifying your pipeline.
 
 ![Non inverse-consistent registration](images/fig1.png)
 
@@ -29,7 +29,7 @@ David Rivest-Hénault, Nicholas Dowson, Peter B. Greer, Jurgen Fripp, and Jason 
 
 The permanent citable DOI link to the original source code used in the production of this paper is here: [dx.doi.org](http://dx.doi.org/10.4225/08/55372DE407418). The GitHub version has been updated and is (semi-)actively developed. 
 
-If you use this program for scientific research or other related work, we would appreciate if you could cite the paper and/or the code DOI mentioned above.
+If you use this program for scientific research or other related work, we would appreciate if you could cite the paper and/or the DOI code mentioned above.
 
 
 LICENSE
@@ -109,5 +109,4 @@ REPORTING AN ISSUE
 ==================
 
 Although the developers are perfect, the source code might not be so. If you encounter an issue, please report it in the [GitHub Page](https://github.com/aehrc/Mirorr) (you need a free GitHub account for that). Alternatively, if you are C++ literate, your can ask for a pull request. I will try to respond quickly. Finally, if none of the above works well for you, feel free to contact the corresponding author indicated in the paper.
-
 
