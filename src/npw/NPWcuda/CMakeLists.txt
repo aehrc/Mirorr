@@ -3,7 +3,6 @@
 # Version 2.6 is the minimum.
 #-------------------------------------------------------
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
-message("Todo: add a message about how to install the dreaded cupdd library")
 
 #-------------------------------------------------------
 # Project Name
@@ -50,10 +49,31 @@ find_package(OpenGL REQUIRED)
 find_package(Threads REQUIRED)  # P-Threads
 find_package(CUDA REQUIRED)
 find_package(SDL REQUIRED)
-find_package(cudpp CONFIG REQUIRED)
 
 INCLUDE_DIRECTORIES(${CUDA_INCLUDE_DIRS})    # TODO: None of the include seem to satisfy CLion...
 INCLUDE_DIRECTORIES(${CUDA_TOOLKIT_INCLUDE}) # TODO:
+
+find_package(cudpp CONFIG)
+if (NOT ${cudpp_FOUND})
+  message(SEND_ERROR "CUDPP could NOT be found on the system")
+  message("In date of May 2015, it is strongly recommanded to install the 2.2 version")
+  message("directly from the https://github.com/drhenault/cudpp repository. The install ")
+  message("process in the main repository (http://cudpp.github.io/) is currently broken.")
+  message("")
+  message("Quick install cues:")
+  message("  cd ~/myDevDirectory")
+  message("  git clone git@github.com:drhenault/cudpp.git cudpp")
+  message("  cd cudpp")
+  message("  git checkout 2.2-drh-install-fixed")
+  message("  git submodule init")
+  message("  git submodule update")
+  message("  mkdir build; cd build")
+  message("  [do the regular CMake thing]")
+  message("  make -j 24")
+  message("  sudo make install  # IMPORTANT: need to be installed")
+  message("")
+  message("See also: https://github.com/arrayfire/arrayfire/wiki/Build-Instructions-for-Linux")
+endif ()
 
 #-------------------------------------------------------
 # Compiler flags for relevent platform
