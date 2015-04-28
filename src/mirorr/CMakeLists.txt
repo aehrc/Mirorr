@@ -6,11 +6,23 @@ option( USE_OPENCL "Compile in GPU-based block matching developed by J. Coatelen
 option( VTK_MIRORR "Debug Mirorr using VTK visualisation" OFF )
 option( USE_MIRORR_NON_SYSTEM_BOOST "Use non-system path boost installation. " OFF )
 
-add_definitions( "-Wall -ansi" )
+#----------------------------
+# Platform specific settings
+#----------------------------
+if( WIN32 )
+  add_definitions( "/wd4711" )
+else ( WIN32 )
+  add_definitions( "-Wall -ansi" )
+endif( WIN32 )
 
+
+
+#----------------------------
+# ITK
+#----------------------------
 find_package(ITK REQUIRED)
 include(${ITK_USE_FILE})
-include_directories( ${ITK_INCLUDE_DIRS} )
+include_directories(${ITK_INCLUDE_DIRS})
 
 if(${ITK_VERSION_MAJOR}.${ITK_VERSION_MINOR} VERSION_GREATER 3.20)
   set(ITK_IO_LIBRARIES ITKIOBioRad ITKIOBMP ITKIOCSV ITKIOGDCM ITKIOGE ITKIOGIPL ITKIOHDF5 ITKIOImageBase ITKIOIPL ITKIOJPEG ITKIOLSM ITKIOMesh ITKIOMeta ITKIONIFTI ITKIONRRD ITKIOPNG ITKIOSiemens ITKIOSpatialObjects ITKIOStimulate ITKIOTIFF ITKIOTransformBase ITKIOTransformHDF5 ITKIOTransformInsightLegacy ITKIOTransformMatlab ITKIOVTK ITKIOXML ITKReview)
@@ -18,6 +30,32 @@ else(${ITK_VERSION_MAJOR}.${ITK_VERSION_MINOR} VERSION_GREATER 3.20)
   set(ITK_IO_LIBRARIES ITKIO)
 endif(${ITK_VERSION_MAJOR}.${ITK_VERSION_MINOR} VERSION_GREATER 3.20)
 
+#----------------------------
+# Boost
+#----------------------------
+if( WIN32 )
+  set(BOOST_ROOT "" CACHE PATH "Root of your Boost directory (normally contains bootstrap.bat)")
+  set(Boost_USE_STATIC_LIBS        ON) # only find static libs
+  set(Boost_USE_MULTITHREADED      ON)
+  set(Boost_USE_STATIC_RUNTIME    OFF)
+  find_package(Boost REQUIRED)
+  find_package(Boost COMPONENTS program_options filesystem system timer)
+else( WIN32 )
+  find_package(Boost REQUIRED)
+endif( WIN32 )
+
+include_directories(${Boost_INCLUDE_DIR})
+link_directories(${Boost_LIBRARY_DIR})
+#message("LD: ${Boost_LIBRARY_DIRS}")
+#message("L:  ${Boost_LIBRARIES}")
+#message("FS: ${Boost_FILESYSTEM_LIBRARY}")
+#message("S:  ${Boost_SYSTEM_LIBRARY}")
+#message("T:  ${Boost_TIMER_LIBRARY}")
+#message("PO: ${Boost_PROGRAM_OPTIONS_LIBRARY}")
+
+#----------------------------
+# Mirorr optional
+#----------------------------
 if( VTK_MIRORR )
   add_definitions("-DVTK_MIRORR")
   find_package( VTK REQUIRED)
@@ -34,11 +72,11 @@ if( USE_OPENCL )
   include_directories(/usr/local/cuda/include/)
 endif( USE_OPENCL )
 
-set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-local-typedefs") #Turn off those anoying warning... (most of them won't solve: they're part of ITK V4)
+#set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-local-typedefs") #Turn off those anoying warning... (most of them won't solve: they're part of ITK V4)
 add_executable( mirorr mirorr.cxx ${VTK_MIRORR_SRC}) 
 target_link_libraries( mirorr
   ${ITK_LIBRARIES}
-  boost_program_options boost_filesystem boost_system boost_timer
+  #boost_program_options boost_filesystem boost_system boost_timer
 )
 
 if (USE_MIRORR_NON_SYSTEM_BOOST)

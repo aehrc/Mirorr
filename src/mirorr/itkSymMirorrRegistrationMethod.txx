@@ -1327,7 +1327,7 @@ SymMirorrRegistrationMethod<TMovingImage, TFixedImage>
       try {
         final_transformF->SetMatrix(K);
         final_transformB->SetMatrix(L);
-      } catch (itk::ExceptionObject &e) {
+      } catch (itk::ExceptionObject &) {
         // DRH: In rare occasions, the K and L matrices can be too far from
         // being orthogonal to be accepted by ITK, so we orthogonalize them.
         // The following operations reduce the symmetry of the algorithm, that's why

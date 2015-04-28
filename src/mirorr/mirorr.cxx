@@ -370,8 +370,8 @@ int main( int argc, char* argv[] )
     mirorr.SetMovingMaskName( variablesMap["moving-mask"].as<std::string>() );
     mirorr.SetFixedMaskName( variablesMap["fixed-mask"].as<std::string>() );
     }
-  mirorr.SetDoResampleTo128( variablesMap.count("resample") == true );
-  mirorr.SetDoReorientRAI( variablesMap.count("reorient") == true );
+  mirorr.SetDoResampleTo128( variablesMap.count("resample") > 0 );
+  mirorr.SetDoReorientRAI( variablesMap.count("reorient") > 0 );
 
   //Read in the name of the file for the final transformation or create one
   //from fixed image name

@@ -389,10 +389,19 @@ ReadInputTransform(
         std::string transformFileName,
         std::string _fixedName,
         bool _invert_output_transform) {
+#ifdef _WIN32
+  const std::string sep("\\");
+#else
+  const std::string sep("/");
+#endif
+
   if (transformFileName.empty()) {
-    //Extract bit of filename after last "/"
-    transformFileName =
-            _fixedName.substr(_fixedName.find_last_of("/") + 1);
+    if (transformFileName.find(sep) != std::string::npos) {
+      //Extract bit of filename after last "/"
+	  transformFileName =
+            _fixedName.substr(_fixedName.find_last_of(sep) + 1);
+	}
+
     //Strip off two .dots (if any)
     transformFileName = transformFileName.substr(0,
                                                  transformFileName.find_last_of('.'));
@@ -401,7 +410,7 @@ ReadInputTransform(
                                                    transformFileName.find_last_of('.'));
 
     transformFileName += "_tfmInitial.tfm";
-    transformFileName = std::string("/tmp/") + transformFileName;
+    transformFileName = std::string("__tmp_") + transformFileName;
 
     if (verbosity >= 1)
       std::cout << "Setting Initial transform to have translation of "
@@ -414,7 +423,7 @@ ReadInputTransform(
     if (readParametersUsingItkTransformFileReader(
             transformFileName, transform, _invert_output_transform)) {
       std::ostringstream name;
-      name << "/tmp/example-" << transform->GetTransformTypeAsString() << ".tfm";
+      name << "__tmp_example-" << transform->GetTransformTypeAsString() << ".tfm";
 
       std::cerr << "Could not read input transform file: "
                    << transformFileName << std::endl
