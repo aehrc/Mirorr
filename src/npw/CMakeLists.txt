@@ -11,4 +11,4 @@ if(NPW_USE_OPENGL)
   add_subdirectory(NPWopengl)
 endif(NPW_USE_OPENGL)
 
-
+add_subdirectory(NPWmontecarlo)

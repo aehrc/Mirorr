@@ -12,7 +12,7 @@ PROJECT(NPW_OPENGL)
 #-------------------------------------------------------
 # Enable/Disable Shared Libraries
 #-------------------------------------------------------
-OPTION(BUILD_SHARED_LIBS "Build NPWCudaFramework with shared libraries." ON)
+OPTION(BUILD_SHARED_LIBS "Build NPWindowOpenGL with shared libraries." ON)
 
 #-------------------------------------------------------
 # Finding external packages

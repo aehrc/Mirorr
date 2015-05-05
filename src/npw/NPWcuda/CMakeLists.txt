@@ -39,7 +39,7 @@ ENDIF(WIN32)
 #-------------------------------------------------------
 # Enable/Disable Shared Libraries
 #-------------------------------------------------------
-OPTION(BUILD_SHARED_LIBS "Build NPWCudaFramework with shared libraries." ON)
+OPTION(BUILD_SHARED_LIBS "Build NPWindowCUDA with shared libraries." ON)
 SET(NPW_CUDA_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
 
 #-------------------------------------------------------
