@@ -29,6 +29,8 @@ PURPOSE.  See the above copyright notice for more information.
 #include <exception>
 #include "itkIOUtils.h"
 
+#include <itkChangeInformationImageFilter.h>
+
 
 //  The following section of code implements an observer
 //  that will monitor the evolution of the registration process.
@@ -485,6 +487,121 @@ MirorrPyramidImplement/*<DIMENSION>*/
   << "s <-^------"
   << std::endl;
   level_timer.start();
+}
+
+/*typename*/ MirorrPyramidImplement/*<DIMENSION>*/::ImagePointer
+MirorrPyramidImplement/*<DIMENSION>*/
+::GetReorientedImage(
+    /*typename*/ TransformType::Pointer itransform,
+    bool resample_moving
+)
+{
+  typedef itk::ChangeInformationImageFilter< ImageType > ChangeInfoType;
+  TransformType::Pointer transform = itransform;
+
+  ChangeInfoType::Pointer imageChanger = ChangeInfoType::New();
+  ImageType::Pointer image;
+
+  if( resample_moving )
+  {
+    image = movingImage;
+    itransform = dynamic_cast<TransformType*>(
+        transform->GetInverseTransform().GetPointer() );
+  }
+  else
+    image = fixedImage;
+  imageChanger->SetInput( image );
+  imageChanger->ChangeDirectionOn();
+  imageChanger->ChangeOriginOn();
+
+  //Get relevant information
+  typedef ImageType::DirectionType DirectionType;
+  typedef ImageType::PointType PointType;
+  typedef ImageType::SpacingType SpacingType;
+  DirectionType in_direction = image->GetDirection();
+  PointType in_origin = image->GetOrigin();
+  //SpacingType in_spacing = image->GetSpacing();
+
+  DirectionType out_direction;
+  PointType out_origin;
+  SpacingType out_spacing;
+
+  //Get the matrix manually
+  {
+    for(int ii=0;ii<3; ++ii)
+    {
+      itk::Point<double, 3> ipts_4d, ipts_4d_zero;
+      itk::Point<double, 3> ipts_3d, ipts_3d_zero, ipts_3d_diff;
+      itk::Point<double, 3> opts_3d, opts_3d_zero, opts_3d_diff;
+
+      itk::ContinuousIndex<double,3> index;
+      index.Fill(0);
+      image->TransformContinuousIndexToPhysicalPoint( index, ipts_4d_zero );
+      index[ii] = 1;
+      image->TransformContinuousIndexToPhysicalPoint( index, ipts_4d );
+
+      for(int jj=0; jj<3; ++jj ) ipts_3d[jj] = ipts_4d[jj];
+      for(int jj=0; jj<3; ++jj ) ipts_3d_zero[jj] = ipts_4d_zero[jj];
+
+      double mag_3d_diff = 0;
+      for(int jj=0; jj<3; ++jj )
+      {
+        ipts_3d_diff[jj] = ipts_4d[jj]-ipts_4d_zero[jj];
+        mag_3d_diff += ipts_3d_diff[jj]*ipts_3d_diff[jj];
+      }
+      //Normalise
+      mag_3d_diff = sqrt(mag_3d_diff);
+      for(int jj=0; jj<3; ++jj )
+        ipts_3d_diff[jj] /= mag_3d_diff;
+
+      //std::cout<<"Point "<<ii<<": "<<ipts_3d_diff<<" ---> ";
+
+      opts_3d = transform->TransformPoint( ipts_3d );
+      opts_3d_zero = transform->TransformPoint( ipts_3d_zero );
+      opts_3d_diff = transform->TransformPoint( ipts_3d_diff );
+
+      mag_3d_diff = 0;
+      for(int jj=0; jj<3; ++jj )
+      {
+        opts_3d_diff[jj] = opts_3d[jj] - opts_3d_zero[jj];
+        mag_3d_diff += opts_3d_diff[jj]*opts_3d_diff[jj];
+      }
+      //Normalise!
+      mag_3d_diff = sqrt(mag_3d_diff);
+      for(int jj=0; jj<3; ++jj )
+        opts_3d_diff[jj] /= mag_3d_diff;
+
+      //std::cout<<opts_3d_diff<<std::endl;
+
+      for(int jj=0; jj<3; ++jj )
+        out_direction[jj][ii] = opts_3d_diff[jj];
+
+    }
+    out_direction[3][3] = 1;
+
+    //BEWARE of negative determinants - they will flip your axes!
+    double det = fabs(vnl_det( out_direction.GetVnlMatrix() ));
+    for( int ii=0; ii<3; ++ii )
+      for( int jj=0; jj<3; ++jj )
+        out_direction[ii][jj] /= det;
+  }
+
+  itk::Point<double, 3> in_origin3d;
+  for( int ii=0; ii<3; ++ii ) in_origin3d[ii] = in_origin[ii];
+  itk::Point<double, 3> out_origin3d = transform->TransformPoint( in_origin3d );
+  for( int ii=0; ii<3; ++ii ) out_origin[ii] = out_origin3d[ii];
+
+//  std::cout << "   Tfm Offset: " << transform->GetOffset() << std::endl;
+//  std::cout << "   Tfm Centre: " << transform->GetCenter() << std::endl;
+//  std::cout << "Tfm Translate: " << transform->GetTranslation() << std::endl;
+//  std::cout << "   Tfm Rotate: " << transform->GetMatrix() << std::endl;
+
+  //Apply the transform
+  imageChanger->SetOutputDirection( out_direction );
+  imageChanger->SetOutputOrigin( out_origin );
+  imageChanger->Update();
+
+  return imageChanger->GetOutput();
 }
 
 //template <unsigned int DIMENSION>
