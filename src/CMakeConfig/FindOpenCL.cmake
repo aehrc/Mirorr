@@ -59,22 +59,48 @@ ELSE (APPLE)
 
   ELSE (WIN32)
 
+    #
     # Unix style platforms
-    FIND_LIBRARY(OPENCL_LIBRARIES OpenCL
-    ENV LD_LIBRARY_PATH /usr/local/cuda/lib64 /usr/local/cuda/lib
-    )
-
-    GET_FILENAME_COMPONENT(OPENCL_LIB_DIR ${OPENCL_LIBRARIES} PATH)
-    GET_FILENAME_COMPONENT(_OPENCL_INC_CUDA ${OPENCL_LIB_DIR}/../include ABSOLUTE)
-    GET_FILENAME_COMPONENT(_OPENCL_INC_AMD  ${OPENCL_LIB_DIR}/../../include ABSOLUTE)
+    #
     
-    # The AMD and CUDA SDK currently does not place its headers
-    # in /usr/include, therefore also search relative
-    # to the library
-    FIND_PATH(OPENCL_INCLUDE_DIRS CL/cl.h PATHS ${_OPENCL_INC_CUDA} ${_OPENCL_INC_AMD} NO_DEFAULT_PATH )
-    FIND_PATH(OPENCL_INCLUDE_DIRS CL/cl.h )
-    #FIND_PATH(_OPENCL_CPP_INCLUDE_DIRS CL/cl.hpp PATHS ${_OPENCL_INC_CUDA} ${_OPENCL_INC_AMD} NO_DEFAULT_PATH) #Note: file not provided by CUDA
-
+    # 1. Try to get the implementation from the 'cuda' package from, e.g. http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1404/x86_64
+    FIND_LIBRARY(OPENCL_LIBRARIES OpenCL
+      /usr/local/cuda/lib64 
+      /usr/local/cuda/lib 
+      ENV LD_LIBRARY_PATH 
+      NO_DEFAULT_PATH
+    )
+    
+    # 2. If above did not work, try to get the implementation from other place, 
+    #    e.g., the 'nvidia-XYZ' package from, e.g. http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1404/x86_64
+    # Note: FIND_LIBRARY does nothing if OPENCL_LIBRARIES is already defined
+    FIND_LIBRARY(OPENCL_LIBRARIES OpenCL ENV LD_LIBRARY_PATH)
+    
+    # Identifying the include directory
+    #
+    # The AMD and CUDA SDK currently do not place their headers
+    # in /usr/include, therefore also search paths relative to the library
+    GET_FILENAME_COMPONENT(OPENCL_LIB_DIR ${OPENCL_LIBRARIES} PATH)
+    string(REGEX MATCH "cuda" _OPENCL_FROM_CUDA ${OPENCL_LIB_DIR})
+    
+    IF(_OPENCL_FROM_CUDA)
+      GET_FILENAME_COMPONENT(_OPENCL_INC_CUDA ${OPENCL_LIB_DIR}/../include ABSOLUTE)
+      FIND_PATH(OPENCL_INCLUDE_DIRS CL/cl.h PATHS ${_OPENCL_INC_CUDA} NO_DEFAULT_PATH )
+    ELSE()
+      # For the 'nvidia-XYZ' package
+      file(GLOB _2_OPENCL_INC_NVIDIA /usr/include/nvidia-*/CL/cl.h)  # assumes only one nvidia-XYZ dir
+      GET_FILENAME_COMPONENT(_1_OPENCL_INC_NVIDIA ${_2_OPENCL_INC_NVIDIA} PATH)
+      GET_FILENAME_COMPONENT(_OPENCL_INC_NVIDIA ${_1_OPENCL_INC_NVIDIA}/.. ABSOLUTE)
+      
+      # Other guesses
+      GET_FILENAME_COMPONENT(_OPENCL_INC_CUDA ${OPENCL_LIB_DIR}/../include ABSOLUTE)
+      GET_FILENAME_COMPONENT(_OPENCL_INC_AMD  ${OPENCL_LIB_DIR}/../../include ABSOLUTE)
+      
+      FIND_PATH(OPENCL_INCLUDE_DIRS CL/cl.h PATHS ${_OPENCL_INC_CUDA} ${_OPENCL_INC_AMD} ${_OPENCL_INC_NVIDIA} NO_DEFAULT_PATH )
+      FIND_PATH(OPENCL_INCLUDE_DIRS CL/cl.h )
+    ENDIF()
+    
+    message("OPENCL_INCLUDE_DIRS " ${OPENCL_INCLUDE_DIRS})
   ENDIF (WIN32)
 
 ENDIF (APPLE)
