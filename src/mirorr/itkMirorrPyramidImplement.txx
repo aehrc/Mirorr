@@ -22,6 +22,8 @@ PURPOSE.  See the above copyright notice for more information.
 #include "itkMirorrPyramidImplement.h"
 #include <itkCommand.h>
 #include <itkResampleImageFilter.h>
+#include <itkBSplineInterpolateImageFunction.h>
+#include <itkWindowedSincInterpolateImageFunction.h>
 #include <itkImageFileWriter.h>
 #include <boost/timer/timer.hpp>
 #include <string>
@@ -604,6 +606,13 @@ MirorrPyramidImplement/*<DIMENSION>*/
   return imageChanger->GetOutput();
 }
 
+/*itk::InterpolateImageFunction<ImageType>::Pointer
+__GetInterpolatorFromString()
+{
+  ;
+}*/
+
+
 //template <unsigned int DIMENSION>
 /*typename*/ MirorrPyramidImplement/*<DIMENSION>*/::ImagePointer
 MirorrPyramidImplement/*<DIMENSION>*/
@@ -612,12 +621,28 @@ MirorrPyramidImplement/*<DIMENSION>*/
     bool resample_moving
 )
 {
+  //Create the final_interpolator
+  itk::BSplineInterpolateImageFunction<ImageType>::Pointer bspline_interpolator = itk::BSplineInterpolateImageFunction<ImageType>::New();
+  bspline_interpolator->SetSplineOrder(5); //default is 3
+
+  const unsigned int WindowRadius = 5;
+  typedef itk::Function::WelchWindowFunction<WindowRadius> WindowFunctionType;
+  itk::WindowedSincInterpolateImageFunction<ImageType, WindowRadius, WindowFunctionType>::Pointer sinc_interpolator
+          = itk::WindowedSincInterpolateImageFunction<ImageType, WindowRadius, WindowFunctionType>::New();
+
+  //itk::InterpolateImageFunction<ImageType>::Pointer final_interpolator = itk::LinearInterpolateImageFunction<ImageType>::New();
+  //itk::InterpolateImageFunction<ImageType>::Pointer final_interpolator
+  //        = dynamic_cast<itk::InterpolateImageFunction<ImageType> *>(bspline_interpolator.GetPointer());
+  itk::InterpolateImageFunction<ImageType>::Pointer final_interpolator
+          = dynamic_cast<itk::InterpolateImageFunction<ImageType> *>(sinc_interpolator.GetPointer());
+
   //Create an image resampler
   typedef itk::ResampleImageFilter< ImageType, ImageType > ResampleFilterType;
   /*typename*/ ResampleFilterType::Pointer resampler = ResampleFilterType::New();
 
   resampler->SetDefaultPixelValue( 0 );
   resampler->SetUseReferenceImage(true);
+  resampler->SetInterpolator(final_interpolator);
 
   if( resample_moving )
   {

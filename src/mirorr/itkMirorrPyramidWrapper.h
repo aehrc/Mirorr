@@ -89,6 +89,7 @@ public:
   MirorrPyramidWrapper()
   { //Defaults
     do_not_register = false;
+    invert_input_transform = false;
     invert_output_transform = false;
     verbosity = 1;
     do_reorient_fixed = false;
@@ -152,6 +153,8 @@ public:
    * respective ITK classes */
   void SetTransformType( const std::string & _ss ) {transformType = _ss; }
   const std::string & GetTransformType( ) const { return transformType; }
+  //!Output moving to fixed  image instead of vice versa
+  void SetInvertInputTransform( bool in ) {invert_input_transform = in; }
   //!Output moving to fixed  image instead of vice versa
   void SetInvertOutputTransform( bool in ) {invert_output_transform = in; }
 
@@ -232,6 +235,7 @@ private:
 //  std::string blockMetricType;
 //
 //  bool doSaveIntermediateImages; //! Should we save images after each iteration?
+  bool invert_input_transform; //!Input moving to fixed  image instead of vice versa
   bool invert_output_transform; //!Output moving to fixed  image instead of vice versa
   int verbosity; //Verbosity of algorithm
   bool do_not_register; //Do not register the images. Just use transform to resample them

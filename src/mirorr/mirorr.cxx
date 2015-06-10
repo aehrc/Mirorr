@@ -125,7 +125,7 @@ int main( int argc, char* argv[] )
     ("last-tfm,l", po::value<std::string>()->default_value( std::string("") ), //
         "File with optimised transformation from moving to fixed image.")
     ("start-tfm,s", po::value<std::string>()->default_value( std::string("") ),
-        "File with initial transformation")
+        "File with initial transformation (will not be overwritten unless it is the same as last-tfm)")
     ("tfm-type,t", po::value<std::string>()->default_value("rigid"),
         "Type of transformation: rigid/affine")
     ("reg-mode", po::value<std::string>()->default_value("symmetric"),
@@ -155,8 +155,9 @@ int main( int argc, char* argv[] )
         "Switch images, so transform is from fixed to moving image. "
         "DEPRECATED - No longer needed with symmetric approach")
     ("invert-last-tfm,I",
-        "Invert output transform. "
-        "DEPRECATED - No longer needed with symmetric approach")
+        "Invert output transform. (Maybe use it with --invert-start-tfm)")
+    ("invert-start-tfm,i",
+        "Invert input transform. (Maybe use it with --invert-last-tfm)")
     ("nthreads", po::value<int>()->default_value(0),
         "Number of block matching threads. "
         "Default is 1 thread per available CPU core.")
@@ -275,8 +276,7 @@ int main( int argc, char* argv[] )
   //f F h H l L m M n q R s S t v b
 
   po::positional_options_description positionalDescription;
-  positionalDescription.add("moving", 1).add("fixed",1).add("last-tfm",1)
-  .add("start-tfm",1);
+  positionalDescription.add("moving", 1).add("fixed",1).add("last-tfm",1).add("start-tfm",1);
 
   po::variables_map variablesMap;
   po::store(po::command_line_parser(argc, argv).
@@ -457,9 +457,9 @@ int main( int argc, char* argv[] )
 
   //Specify name of file to save fixed image to after registration
   if(variablesMap.count("save-fixed"))
-    mirorr.SetLastTransformedFixedName( variablesMap["save-fixed"].as<std::string>() );
+    mirorr.SetLastTransformedFixedName( variablesMap["save-fixed"].as<std::string>(), true);
   if(variablesMap.count("save-moving"))
-    mirorr.SetLastTransformedMovingName( variablesMap["save-moving"].as<std::string>() );
+    mirorr.SetLastTransformedMovingName( variablesMap["save-moving"].as<std::string>(), true);
   if(variablesMap.count("save-reoriented-fixed"))
     mirorr.SetLastTransformedFixedName( variablesMap["save-reoriented-fixed"].as<std::string>() );
   if(variablesMap.count("save-reoriented-moving"))
@@ -477,6 +477,12 @@ int main( int argc, char* argv[] )
       throw std::runtime_error("Cannot use save-resampled-moving and save-reoriented-moving arguments at same time.");
     mirorr.SetLastTransformedMovingName(variablesMap["save-resampled-moving"].as<std::string>(), true);
   }
+
+  if( variablesMap.count("invert-start-tfm") )
+    mirorr.SetInvertInputTransform( true );
+  else
+    mirorr.SetInvertInputTransform( false );
+
   if( variablesMap.count("invert-last-tfm") )
     mirorr.SetInvertOutputTransform( true );
   else

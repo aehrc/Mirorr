@@ -226,15 +226,28 @@ writeParametersUsingItkTransformFileWriter(
         bool invert) {
   InputTransformType::Pointer tfm2 = tfm;
   //The inversion here means output is Rigid3DTransform_double_3_3 - which causes problems later
+
   if (invert) {
     InputTransformType::Pointer tfm_inverse =
             dynamic_cast<InputTransformType *>( tfm->GetInverseTransform().GetPointer());
 
+    //tfm_inverse is of class MatrixOffsetTransformBase_double_3_3 (unsupported for input)
+    //so we need to convert to the correct output type
+    InputTransformType::Pointer transform = CreateAppropriateTransform( this->transformType );
+    transform->SetCenter(tfm_inverse->GetCenter());
+    transform->SetTranslation(tfm_inverse->GetTranslation());
+    transform->SetMatrix(tfm_inverse->GetMatrix());
+
+    // DRH - 2015-06-10 - Old implementation, for reference. Probably safe to delete in a couple of weeks
+    /*
     typedef AffineTransform<double, DIMENSION> AffineTransformType;
     AffineTransformType::Pointer tfm_affine = AffineTransformType::New();
     tfm_affine->SetTranslation(tfm_inverse->GetTranslation());
     tfm_affine->SetMatrix(tfm_inverse->GetMatrix());
     tfm2 = dynamic_cast<InputTransformType *>( tfm_affine.GetPointer());
+    */
+
+    tfm2 = transform;
   }
 
   //Write the transform to a file
@@ -303,6 +316,7 @@ readParametersUsingItkTransformFileReader(
       affineTransform->SetMatrix(tmatrix);
     }
 
+    tfm->SetCenter(affineTransform->GetCenter());
     tfm->SetMatrix(affineTransform->GetMatrix());
     tfm->SetTranslation(affineTransform->GetTranslation());
 
@@ -408,7 +422,7 @@ ReadInputTransform(
   }
   else {
     if (readParametersUsingItkTransformFileReader(
-            transformFileName, transform, _invert_output_transform)) {
+            transformFileName, transform, _invert_output_transform) != 0) {
       std::ostringstream name;
       name << "/tmp/example-" << transform->GetTransformTypeAsString() << ".tfm";
 
@@ -457,7 +471,7 @@ Update()
   //Create input structure for MirorrPyramidImplement and fill this in.
   ReadAndResampleImages();
 
-  InputTransformType::Pointer transform = CreateAppropriateTransform( transformType );
+  InputTransformType::Pointer transform = CreateAppropriateTransform( this->transformType );
   transform->SetIdentity();
   if( verbosity >= 1 )
     std::cout << "Transform Class: " << transform->GetNameOfClass() << std::endl;
@@ -468,7 +482,7 @@ Update()
 //    centre[ii] += 0.5*movingImage->GetSpacing()[ii] * movingImage->GetLargestPossibleRegion().GetSize(ii);
 //  transform->SetCenter( centre );
 //  transform->SetIdentity();
-  if( do_initialise_tfm_to_centre_images )
+  if( initialTransformName == "" && do_initialise_tfm_to_centre_images )
   {
     typedef itk::CenteredTransformInitializer< TransformType, ImageType, ImageType > TransformInitializer;
     TransformInitializer::Pointer initialiser =  TransformInitializer::New();
@@ -478,15 +492,17 @@ Update()
     initialiser->GeometryOn();
     initialiser->InitializeTransform();
   }
-  ReadInputTransform( transform, initialTransformName, fixedName,
-      invert_output_transform );
+  ReadInputTransform( transform, initialTransformName, fixedName, invert_input_transform );
 
   //Display the input image
 
 
   //Register the two images
-  std::cout<<"Loaded  FIXED: "; __MirorrPyramidWrapper::PrintImage<ImageType>(std::cout,fixedImage); std::cout<<"\n";
-  std::cout<<"Loaded MOVING: "; __MirorrPyramidWrapper::PrintImage<ImageType>(std::cout,movingImage); std::cout<<"\n";
+  if( verbosity >= 2 ) {
+    std::cout<<"Loaded  FIXED: "; __MirorrPyramidWrapper::PrintImage<ImageType>(std::cout,fixedImage); std::cout<<"\n";
+    std::cout<<"Loaded MOVING: "; __MirorrPyramidWrapper::PrintImage<ImageType>(std::cout,movingImage); std::cout<<"\n";
+  }
+
   mirorr.SetFixedImage( fixedImage );
   mirorr.SetMovingImage( movingImage );
   mirorr.SetFixedMask( fixedMask );
@@ -516,7 +532,9 @@ Update()
   if( !lastTransformedFixedName.empty() )
   {
     ImagePointer resampledFixedImage;
-    std::cout<<"Transforming FIXED: "; __MirorrPyramidWrapper::PrintImage<ImageType>(std::cout,fixedImage); std::cout<<"\n";
+    if( verbosity >= 2 ) {
+      std::cout<<"Transforming FIXED: "; __MirorrPyramidWrapper::PrintImage<ImageType>(std::cout,fixedImage); std::cout<<"\n";
+    }
 
     //Favour reorienting if rigid unless forced
     if( !do_force_resample_fixed && (transformType == "rigid" || transformType == "quat")  )
@@ -528,7 +546,9 @@ Update()
 
     typedef itk::ImageFileWriter< ImageType > WriterType;
 
-    std::cout<<"Output FIXED: "; __MirorrPyramidWrapper::PrintImage<ImageType>(std::cout,resampledFixedImage); std::cout<<"\n";
+    if( verbosity >= 2 ) {
+      std::cout<<"Output FIXED: "; __MirorrPyramidWrapper::PrintImage<ImageType>(std::cout,resampledFixedImage); std::cout<<"\n";
+    }
     WriterType::Pointer writer = WriterType::New();
     writer->SetInput( resampledFixedImage );
     writer->SetFileName( lastTransformedFixedName );
@@ -550,7 +570,9 @@ Update()
   if( !lastTransformedMovingName.empty() )
   {
     ImagePointer resampledMovingImage;
-    std::cout<<"Transforming MOVING: "; __MirorrPyramidWrapper::PrintImage<ImageType>(std::cout,movingImage); std::cout<<"\n";
+    if( verbosity >= 2 ) {
+      std::cout<<"Transforming MOVING: "; __MirorrPyramidWrapper::PrintImage<ImageType>(std::cout,movingImage); std::cout<<"\n";
+    }
 
     //Favour reorienting if rigid unless forced
     if( !do_force_resample_moving && (transformType == "rigid" || transformType == "quat")  )
@@ -559,7 +581,9 @@ Update()
     else
       resampledMovingImage =
           mirorr.GetResampledImage( dynamic_cast<TransformType*>( transform.GetPointer() ), true );
-    std::cout<<"Output MOVING: "; __MirorrPyramidWrapper::PrintImage<ImageType>(std::cout,resampledMovingImage); std::cout<<"\n";
+    if( verbosity >= 2 ) {
+      std::cout<<"Output MOVING: "; __MirorrPyramidWrapper::PrintImage<ImageType>(std::cout,resampledMovingImage); std::cout<<"\n";
+    }
 
     typedef itk::ImageFileWriter< ImageType > WriterType;
 

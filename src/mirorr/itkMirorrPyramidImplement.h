@@ -144,8 +144,12 @@ public:
   PyramidScheduleTunerType::Pointer GetPyramidScheduleTuner() { return m_PyramidScheduleTuner; }
 
   //! Resample the fixed image into another space defined by the input transform
+  //! interpolator_type is one of nn, linear, bspline, sinc.
+  //! sinc use a radius of 5 (10 grid points) and the Welch window function
   ImagePointer GetResampledImage( /*typename*/ TransformType::Pointer transform,
-      bool resampling_moving_image = false );
+      bool resampling_moving_image = false);
+      //bool resampling_moving_image = false, std::string interpolator_type="" );
+  //! Reorient the fixed image into another space defined by the input transform. Does not resample, just update the header.
   ImagePointer GetReorientedImage( /*typename*/ TransformType::Pointer transform,
       bool resampling_moving_image = false );
 
