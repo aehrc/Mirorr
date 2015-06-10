@@ -89,6 +89,7 @@ public:
   MirorrPyramidWrapper()
   { //Defaults
     do_not_register = false;
+    final_interpolator_name = "bspline";
     invert_input_transform = false;
     invert_output_transform = false;
     verbosity = 1;
@@ -164,6 +165,11 @@ public:
   //! Should we not actually register the images and just apply transform to resample the images?
   void SetDoNotRegister( bool in ) { do_not_register = in; }
 
+  const std::string & GetFinalInterpolatorName()
+  { return final_interpolator_name; }
+  void SetFinalInterpolatorName( const std::string & _ss )
+  { final_interpolator_name = _ss; }
+
   // For pretty display
   void SetProgramName(std::string program_name) {this->program_name = program_name;}
 
@@ -228,6 +234,7 @@ private:
    * "rigid","affine" and "translation" are converted to their
    * respective ITK classes */
   std::string transformType;
+
 //  /** Name of the blockmatcher metric. Abbreviations are converted
 //   * to full names as follows: "nc" to "normalized_correlation",
 //   * "sd" to "sum_of_squared_differences", "cr" to "correlation_ratio",
@@ -239,6 +246,7 @@ private:
   bool invert_output_transform; //!Output moving to fixed  image instead of vice versa
   int verbosity; //Verbosity of algorithm
   bool do_not_register; //Do not register the images. Just use transform to resample them
+  std::string final_interpolator_name;
   std::string program_name;
 };
 

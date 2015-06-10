@@ -147,6 +147,9 @@ int main( int argc, char* argv[] )
     ("save-resampled-moving", po::value<std::string>(),
      "Save moving image (resampling on fixed image's space and grid) "
              "after registration. ")
+    ("final-interpolator", po::value<std::string>()->default_value("bspline"),
+     "Type of interpolator used to save the final resampled images. Valid options: "
+     "nn, linear, bspline, sinc")
     ("moving-mask,M", po::value<std::string>()->default_value(""),
         "Specify Moving Image")
     ("fixed-mask,F", po::value<std::string>()->default_value(""),
@@ -476,6 +479,11 @@ int main( int argc, char* argv[] )
     if (!mirorr.GetLastTransformedMovingName().empty())
       throw std::runtime_error("Cannot use save-resampled-moving and save-reoriented-moving arguments at same time.");
     mirorr.SetLastTransformedMovingName(variablesMap["save-resampled-moving"].as<std::string>(), true);
+  }
+
+  if(variablesMap.count("final-interpolator"))
+  {
+      mirorr.SetFinalInterpolatorName(variablesMap["final-interpolator"].as<std::string>());
   }
 
   if( variablesMap.count("invert-start-tfm") )

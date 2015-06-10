@@ -147,8 +147,7 @@ public:
   //! interpolator_type is one of nn, linear, bspline, sinc.
   //! sinc use a radius of 5 (10 grid points) and the Welch window function
   ImagePointer GetResampledImage( /*typename*/ TransformType::Pointer transform,
-      bool resampling_moving_image = false);
-      //bool resampling_moving_image = false, std::string interpolator_type="" );
+      bool resampling_moving_image = false, std::string interpolator_name="bspline" );
   //! Reorient the fixed image into another space defined by the input transform. Does not resample, just update the header.
   ImagePointer GetReorientedImage( /*typename*/ TransformType::Pointer transform,
       bool resampling_moving_image = false );
@@ -239,6 +238,7 @@ private:
   void DisplayCurrentLevel( int level );
   void DisplayLevelTimings( int level, boost::timer::cpu_timer &level_timer, boost::timer::cpu_timer &total_timer );
 
+  itk::InterpolateImageFunction<ImageType>::Pointer GetInterpolatorFromString(std::string interpolator_name);
 };
 
 #ifndef ITK_MANUAL_INSTANTIATION

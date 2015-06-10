@@ -30,6 +30,7 @@ PURPOSE.  See the above copyright notice for more information.
 #include <iomanip>
 #include <exception>
 #include "itkIOUtils.h"
+//#include "../../../../../../usr/local/cuda-7.0/targets/x86_64-linux/include/nppdefs.h"
 
 #include <itkChangeInformationImageFilter.h>
 
@@ -606,11 +607,77 @@ MirorrPyramidImplement/*<DIMENSION>*/
   return imageChanger->GetOutput();
 }
 
-/*itk::InterpolateImageFunction<ImageType>::Pointer
-__GetInterpolatorFromString()
+
+itk::InterpolateImageFunction<MirorrPyramidImplement::ImageType>::Pointer
+MirorrPyramidImplement::GetInterpolatorFromString(std::string interpolator_name)
 {
-  ;
-}*/
+  /**
+   * The interpolators provided by this function are meant to provide the "best" (YMMV) interpolation
+   * method for a given neighborhood size (thus related to computational cost). Based on:
+   *
+   * Erik H. W. Meijering, Wiro J. Niessen, Josien P. W. Pluim, Max A. Viergever: Quantitative Comparison
+   * of Sinc-Approximating Kernels for Medical Image Interpolation. MICCAI 1999, pp. 210-217
+   */
+  enum EInterpolatorType {NN, LINEAR, BSPLINE, SINC, _ERROR_};
+  EInterpolatorType eInterpolatorType = _ERROR_;
+
+  if (interpolator_name.find("nn") != std::string::npos) {
+    eInterpolatorType = NN;
+  } else if (interpolator_name.find("linear") != std::string::npos) {
+    eInterpolatorType = LINEAR;
+  } else if(interpolator_name.find("bspline") != std::string::npos) {
+    eInterpolatorType = BSPLINE;
+  } else if(interpolator_name.find("sinc") != std::string::npos) {
+    eInterpolatorType = SINC;
+  } else {
+    std::cout << "GetInterpolatorFromString(...) Unspecified or unknown interpolator name. "
+    << "Defaulting to bspline." << std::cout;
+    eInterpolatorType = BSPLINE;
+  }
+
+  itk::InterpolateImageFunction<ImageType>::Pointer final_interpolator;
+
+  switch (eInterpolatorType) {
+    case NN:
+    {
+      final_interpolator = dynamic_cast<itk::InterpolateImageFunction<ImageType> *>(
+          itk::NearestNeighborInterpolateImageFunction<ImageType>::New().GetPointer());
+
+    }
+    break;
+
+    case LINEAR:
+    {
+      final_interpolator = dynamic_cast<itk::InterpolateImageFunction<ImageType> *>(
+          itk::LinearInterpolateImageFunction<ImageType>::New().GetPointer());
+    }
+    break;
+
+    case BSPLINE:
+    {
+      itk::BSplineInterpolateImageFunction<ImageType>::Pointer bspline_interpolator = itk::BSplineInterpolateImageFunction<ImageType>::New();
+      bspline_interpolator->SetSplineOrder(3); //default is 3
+      final_interpolator = dynamic_cast<itk::InterpolateImageFunction<ImageType> *>(bspline_interpolator.GetPointer());
+    }
+    break;
+
+    case SINC:
+    {
+      const unsigned int WindowRadius = 5;
+      typedef itk::Function::WelchWindowFunction<WindowRadius> WindowFunctionType;
+      itk::WindowedSincInterpolateImageFunction<ImageType, WindowRadius, WindowFunctionType>::Pointer sinc_interpolator
+              = itk::WindowedSincInterpolateImageFunction<ImageType, WindowRadius, WindowFunctionType>::New();
+      final_interpolator = dynamic_cast<itk::InterpolateImageFunction<ImageType> *>(sinc_interpolator.GetPointer());
+    }
+    break;
+
+    default:
+      std::cout << "GetInterpolatorFromString(...) Implementation error!" << std::endl;
+      break;
+  }
+
+  return final_interpolator;
+}
 
 
 //template <unsigned int DIMENSION>
@@ -618,23 +685,11 @@ __GetInterpolatorFromString()
 MirorrPyramidImplement/*<DIMENSION>*/
 ::GetResampledImage(
     /*typename*/ TransformType::Pointer transform,
-    bool resample_moving
+    bool resample_moving, std::string interpolator_name
 )
 {
-  //Create the final_interpolator
-  itk::BSplineInterpolateImageFunction<ImageType>::Pointer bspline_interpolator = itk::BSplineInterpolateImageFunction<ImageType>::New();
-  bspline_interpolator->SetSplineOrder(5); //default is 3
-
-  const unsigned int WindowRadius = 5;
-  typedef itk::Function::WelchWindowFunction<WindowRadius> WindowFunctionType;
-  itk::WindowedSincInterpolateImageFunction<ImageType, WindowRadius, WindowFunctionType>::Pointer sinc_interpolator
-          = itk::WindowedSincInterpolateImageFunction<ImageType, WindowRadius, WindowFunctionType>::New();
-
-  //itk::InterpolateImageFunction<ImageType>::Pointer final_interpolator = itk::LinearInterpolateImageFunction<ImageType>::New();
-  //itk::InterpolateImageFunction<ImageType>::Pointer final_interpolator
-  //        = dynamic_cast<itk::InterpolateImageFunction<ImageType> *>(bspline_interpolator.GetPointer());
-  itk::InterpolateImageFunction<ImageType>::Pointer final_interpolator
-          = dynamic_cast<itk::InterpolateImageFunction<ImageType> *>(sinc_interpolator.GetPointer());
+  //Create the interpolator used for the final resampling
+  itk::InterpolateImageFunction<ImageType>::Pointer final_interpolator = GetInterpolatorFromString(interpolator_name);
 
   //Create an image resampler
   typedef itk::ResampleImageFilter< ImageType, ImageType > ResampleFilterType;

@@ -18,6 +18,7 @@ PURPOSE.  See the above copyright notice for more information.
 #define ITKMIRORRPYRAMIDWRAPPER_TXX_
 
 #include "itkMirorrPyramidWrapper.h"
+#include "itkTransformUtils.h"
 #include <itkOrientImageFilter.h>
 #include <itkCenteredTransformInitializer.h>
 #include <itkNearestNeighborInterpolateImageFunction.h>
@@ -231,21 +232,16 @@ writeParametersUsingItkTransformFileWriter(
     InputTransformType::Pointer tfm_inverse =
             dynamic_cast<InputTransformType *>( tfm->GetInverseTransform().GetPointer());
 
+#if ITK_VERSION_MAJOR < 4 || (ITK_VERSION_MAJOR == 4 && ITK_VERSION_MINOR < 7)
+    updateCenter(tfm_inverse, tfm->GetCenter());  // Old ITK version do not preserve centers
+#endif
+
     //tfm_inverse is of class MatrixOffsetTransformBase_double_3_3 (unsupported for input)
     //so we need to convert to the correct output type
     InputTransformType::Pointer transform = CreateAppropriateTransform( this->transformType );
     transform->SetCenter(tfm_inverse->GetCenter());
     transform->SetTranslation(tfm_inverse->GetTranslation());
     transform->SetMatrix(tfm_inverse->GetMatrix());
-
-    // DRH - 2015-06-10 - Old implementation, for reference. Probably safe to delete in a couple of weeks
-    /*
-    typedef AffineTransform<double, DIMENSION> AffineTransformType;
-    AffineTransformType::Pointer tfm_affine = AffineTransformType::New();
-    tfm_affine->SetTranslation(tfm_inverse->GetTranslation());
-    tfm_affine->SetMatrix(tfm_inverse->GetMatrix());
-    tfm2 = dynamic_cast<InputTransformType *>( tfm_affine.GetPointer());
-    */
 
     tfm2 = transform;
   }
@@ -299,9 +295,17 @@ readParametersUsingItkTransformFileReader(
       throw(std::runtime_error(ss.str()));
     }
 
-    if (bInvertTransform)
-      affineTransform = dynamic_cast<InputTransformType *>(
-              affineTransform->GetInverseTransform().GetPointer());
+    if (bInvertTransform) {
+      InputTransformType::Pointer tfm_inverse = dynamic_cast<InputTransformType *>( affineTransform->GetInverseTransform().GetPointer());
+
+#if ITK_VERSION_MAJOR < 4 || (ITK_VERSION_MAJOR == 4 && ITK_VERSION_MINOR < 7)
+      updateCenter(tfm_inverse, affineTransform->GetCenter());  // Old ITK version do not preserve centers
+#endif
+
+      affineTransform->SetCenter(tfm_inverse->GetCenter());
+      affineTransform->SetTranslation(tfm_inverse->GetTranslation());
+      affineTransform->SetMatrix(tfm_inverse->GetMatrix());
+    }
 
     //Output the transform
     //Ensure input is orthogonal for Euler transform
@@ -495,14 +499,12 @@ Update()
   ReadInputTransform( transform, initialTransformName, fixedName, invert_input_transform );
 
   //Display the input image
-
-
-  //Register the two images
   if( verbosity >= 2 ) {
     std::cout<<"Loaded  FIXED: "; __MirorrPyramidWrapper::PrintImage<ImageType>(std::cout,fixedImage); std::cout<<"\n";
     std::cout<<"Loaded MOVING: "; __MirorrPyramidWrapper::PrintImage<ImageType>(std::cout,movingImage); std::cout<<"\n";
   }
 
+  //Register the two images
   mirorr.SetFixedImage( fixedImage );
   mirorr.SetMovingImage( movingImage );
   mirorr.SetFixedMask( fixedMask );
@@ -539,10 +541,10 @@ Update()
     //Favour reorienting if rigid unless forced
     if( !do_force_resample_fixed && (transformType == "rigid" || transformType == "quat")  )
       resampledFixedImage =
-          mirorr.GetReorientedImage( dynamic_cast<TransformType*>( transform.GetPointer() ) );
+          mirorr.GetReorientedImage( dynamic_cast<TransformType*>( transform.GetPointer() ), false );
     else
       resampledFixedImage =
-          mirorr.GetResampledImage( dynamic_cast<TransformType*>( transform.GetPointer() ) );
+          mirorr.GetResampledImage( dynamic_cast<TransformType*>( transform.GetPointer() ), false, final_interpolator_name );
 
     typedef itk::ImageFileWriter< ImageType > WriterType;
 
@@ -580,7 +582,7 @@ Update()
           mirorr.GetReorientedImage( dynamic_cast<TransformType*>( transform.GetPointer() ), true );
     else
       resampledMovingImage =
-          mirorr.GetResampledImage( dynamic_cast<TransformType*>( transform.GetPointer() ), true );
+          mirorr.GetResampledImage( dynamic_cast<TransformType*>( transform.GetPointer() ), true, final_interpolator_name );
     if( verbosity >= 2 ) {
       std::cout<<"Output MOVING: "; __MirorrPyramidWrapper::PrintImage<ImageType>(std::cout,resampledMovingImage); std::cout<<"\n";
     }
