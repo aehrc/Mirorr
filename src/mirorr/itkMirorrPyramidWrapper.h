@@ -174,6 +174,9 @@ public:
   void SetProgramName(std::string program_name) {this->program_name = program_name;}
 
 private:
+  //!Get the inverse transform, preserving the transform centre and the correct transform type
+  InputTransformType::Pointer GetInverseTransform( InputTransformType::Pointer tfm);
+
   //!Write a transform to a file using standard ITK transform file writer
   void writeParametersUsingItkTransformFileWriter( std::string tfmName, //itk::TransformBase::Pointer
       InputTransformType::Pointer tfm,

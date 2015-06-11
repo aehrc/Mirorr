@@ -419,12 +419,16 @@ int main( int argc, char* argv[] )
   if( variablesMap.count("no-centering-init") )
     mirorr.SetDoInitialiseTransformToCentreImages(false);
 
+  //Should we bother applying registration
+  bool do_not_register = variablesMap.count("do-not-register") > 0;
+  mirorr.SetDoNotRegister( do_not_register );
+
   //Read in the name of the file for the final transformation or create one
   //from fixed image name
   std::string output_transform_file_name = variablesMap["last-tfm"].as<std::string>();
   std::string  input_transform_file_name = variablesMap["start-tfm"].as<std::string>();
 
-  if( output_transform_file_name.empty() )
+  if( output_transform_file_name.empty() && ! do_not_register )
   {
     //Two basenames to catch .nii.gz
     output_transform_file_name =
@@ -432,12 +436,11 @@ int main( int argc, char* argv[] )
     output_transform_file_name += "_tfmFinal.tfm";
     std::cerr << "WARNING: No output transform supplied. Setting to: "
     << output_transform_file_name << std::endl;
+    std::cerr << "INFO:    To avoid saving the last transform, use '--last-tfm ignore'" << std::endl;
+  } else if( output_transform_file_name == "ignore" ) {
+    output_transform_file_name = "";
   }
   mirorr.SetFinalTransformName( output_transform_file_name );
-
-  //Should we bother applying registration
-  bool do_not_register = variablesMap.count("do-not-register") > 0;
-  mirorr.SetDoNotRegister( do_not_register );
 
   //Check if output file exists
   if( input_transform_file_name.empty()

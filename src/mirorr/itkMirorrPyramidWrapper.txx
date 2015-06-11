@@ -218,32 +218,44 @@ MirorrPyramidWrapper
   }
 }
 
+
+MirorrPyramidWrapper::InputTransformType::Pointer
+MirorrPyramidWrapper::
+GetInverseTransform( InputTransformType::Pointer tfm)
+{
+  InputTransformType::Pointer tfm_inverse__ =
+      dynamic_cast<InputTransformType *>( tfm->GetInverseTransform().GetPointer());
+
+#if ITK_VERSION_MAJOR < 4 || (ITK_VERSION_MAJOR == 4 && ITK_VERSION_MINOR < 7)
+    updateCenter(tfm_inverse__, tfm->GetCenter());  // Old ITK version do not preserve centers
+#endif
+
+  //tfm_inverse__ is of class MatrixOffsetTransformBase_double_3_3 (unsupported for input in mirorr)
+  //so we need to convert to the correct user defined IO type
+  InputTransformType::Pointer tfm_inverse = CreateAppropriateTransform( this->transformType );
+  tfm_inverse->SetCenter(tfm_inverse__->GetCenter());
+  tfm_inverse->SetTranslation(tfm_inverse__->GetTranslation());
+  tfm_inverse->SetMatrix(tfm_inverse__->GetMatrix());
+
+  return tfm_inverse;
+}
+
 //!Write a transform to a file using standard ITK transform file writer
 void
 MirorrPyramidWrapper::
 writeParametersUsingItkTransformFileWriter(
         std::string tfmName, //itk::TransformBase::Pointer
         InputTransformType::Pointer tfm,
-        bool invert) {
+        bool invert)
+{
+  if (tfmName.empty()) {
+    return;
+  }
+
   InputTransformType::Pointer tfm2 = tfm;
-  //The inversion here means output is Rigid3DTransform_double_3_3 - which causes problems later
 
   if (invert) {
-    InputTransformType::Pointer tfm_inverse =
-            dynamic_cast<InputTransformType *>( tfm->GetInverseTransform().GetPointer());
-
-#if ITK_VERSION_MAJOR < 4 || (ITK_VERSION_MAJOR == 4 && ITK_VERSION_MINOR < 7)
-    updateCenter(tfm_inverse, tfm->GetCenter());  // Old ITK version do not preserve centers
-#endif
-
-    //tfm_inverse is of class MatrixOffsetTransformBase_double_3_3 (unsupported for input)
-    //so we need to convert to the correct output type
-    InputTransformType::Pointer transform = CreateAppropriateTransform( this->transformType );
-    transform->SetCenter(tfm_inverse->GetCenter());
-    transform->SetTranslation(tfm_inverse->GetTranslation());
-    transform->SetMatrix(tfm_inverse->GetMatrix());
-
-    tfm2 = transform;
+    tfm2 = this->GetInverseTransform(tfm);
   }
 
   //Write the transform to a file
@@ -295,31 +307,23 @@ readParametersUsingItkTransformFileReader(
       throw(std::runtime_error(ss.str()));
     }
 
-    if (bInvertTransform) {
-      InputTransformType::Pointer tfm_inverse = dynamic_cast<InputTransformType *>( affineTransform->GetInverseTransform().GetPointer());
-
-#if ITK_VERSION_MAJOR < 4 || (ITK_VERSION_MAJOR == 4 && ITK_VERSION_MINOR < 7)
-      updateCenter(tfm_inverse, affineTransform->GetCenter());  // Old ITK version do not preserve centers
-#endif
-
-      affineTransform->SetCenter(tfm_inverse->GetCenter());
-      affineTransform->SetTranslation(tfm_inverse->GetTranslation());
-      affineTransform->SetMatrix(tfm_inverse->GetMatrix());
-    }
-
-    //Output the transform
     //Ensure input is orthogonal for Euler transform
     if (className.find("Euler") != std::string::npos) {
       vnl_matrix_fixed<double, 3, 3> matrix =
-              affineTransform->GetMatrix().GetVnlMatrix();
+          affineTransform->GetMatrix().GetVnlMatrix();
       matrix.set_row(2, vnl_cross_3d(
-              matrix.get_row(0),
-              matrix.get_row(1)));
+          matrix.get_row(0),
+          matrix.get_row(1)));
       InputTransformType::MatrixType tmatrix(matrix);
 
       affineTransform->SetMatrix(tmatrix);
     }
 
+    if (bInvertTransform) {
+      affineTransform = this->GetInverseTransform(affineTransform);
+    }
+
+    //Assign the transform parameter to the output argument
     tfm->SetCenter(affineTransform->GetCenter());
     tfm->SetMatrix(affineTransform->GetMatrix());
     tfm->SetTranslation(affineTransform->GetTranslation());
@@ -477,15 +481,11 @@ Update()
 
   InputTransformType::Pointer transform = CreateAppropriateTransform( this->transformType );
   transform->SetIdentity();
-  if( verbosity >= 1 )
-    std::cout << "Transform Class: " << transform->GetNameOfClass() << std::endl;
+  if( verbosity >= 1 ) {
+    std::cout << "Transform Class:                 " << transform->GetNameOfClass() << std::endl;
+  }
 
   //Centre the transforms on the image centre
-//  ImageType::PointType centre = movingImage->GetOrigin();
-//  for(int ii=0; ii<3; ++ii )
-//    centre[ii] += 0.5*movingImage->GetSpacing()[ii] * movingImage->GetLargestPossibleRegion().GetSize(ii);
-//  transform->SetCenter( centre );
-//  transform->SetIdentity();
   if( initialTransformName == "" && do_initialise_tfm_to_centre_images )
   {
     typedef itk::CenteredTransformInitializer< TransformType, ImageType, ImageType > TransformInitializer;
@@ -504,7 +504,9 @@ Update()
     std::cout<<"Loaded MOVING: "; __MirorrPyramidWrapper::PrintImage<ImageType>(std::cout,movingImage); std::cout<<"\n";
   }
 
-  //Register the two images
+  //===========================================================================
+  // Register the two images
+  //===========================================================================
   mirorr.SetFixedImage( fixedImage );
   mirorr.SetMovingImage( movingImage );
   mirorr.SetFixedMask( fixedMask );
@@ -525,10 +527,14 @@ Update()
     std::cout << "\nINFO: Not running registration as requested." << std::endl;
   }
 
-  //Save the parameters
+  //Save the registration transform parameters
   writeParametersUsingItkTransformFileWriter( finalTransformName,
                                               transform,
                                               invert_output_transform );
+
+  //===========================================================================
+  // Saving resampled / reoriented registered images, as per user request
+  //===========================================================================
 
   // Save the shifted image if requested to by the user
   if( !lastTransformedFixedName.empty() )
@@ -564,10 +570,6 @@ Update()
 
   }
 
-  //===========================================================================
-
-  //===========================================================================
-
   //And save the shifted image if requested to by the user
   if( !lastTransformedMovingName.empty() )
   {
@@ -601,11 +603,33 @@ Update()
     }
   }
 
-
-  if( verbosity >= 1 )
-  {
+  //===========================================================================
+  // Console output
+  //===========================================================================
+  if( verbosity >= 1 ) {
     std::cout << "\nRegistration and all IO completed in: "
-              << std::setprecision(4) << Mirorr_timer.elapsed().wall/1.E9 << "s" << std::endl;
+                 << std::setprecision(4) << Mirorr_timer.elapsed().wall / 1.E9 << "s" << std::endl;
+  }
+
+  //if( !do_not_register && finalTransformName.empty() ) {
+    TransformType::Pointer local_tfm = transform;
+    if (this->invert_output_transform) {
+      local_tfm = this->GetInverseTransform(transform);
+    }
+
+    std::cout
+      << "\nNot saving the final transform to a file, as requested.\n"
+      << "Final transform specification:" << std::endl
+      << "Transform Class:                 " << local_tfm->GetNameOfClass() << std::endl;
+    std::cout
+      << std::fixed << std::setprecision(8)
+      << "Transformation parameters:       " << PrettyPrint(local_tfm->GetParameters(), 12) << "\n"
+      << "Transformation fixed parameters: " << PrettyPrint(local_tfm->GetFixedParameters(), 12)
+      << " (usually this is the rotation center)\n" << std::endl;
+  //}
+
+  if( verbosity >= 1 && !finalTransformName.empty() )
+  {
     std::cout << "Output Tfm written here: " << finalTransformName << std::endl;
 
     if( verbosity >= 1 && !do_not_register )
