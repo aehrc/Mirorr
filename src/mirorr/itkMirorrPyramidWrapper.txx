@@ -76,6 +76,8 @@ typename TImageType::Pointer
 ReorientARIImage(typename TImageType::Pointer image) {
   typedef typename itk::OrientImageFilter<TImageType, TImageType> TOrientFilter;
 
+  //std::cout << "Orientation:\n" << image->GetDirection() << std::endl;
+
   typename TOrientFilter::Pointer orienter = TOrientFilter::New();
   orienter->UseImageDirectionOn();
   orienter->SetDesiredCoordinateOrientation(
@@ -83,11 +85,21 @@ ReorientARIImage(typename TImageType::Pointer image) {
   orienter->SetInput(image);
   orienter->Update();
 
+
+  //itk::OrientImageFilter: permute first, and then flip
+  //typename TOrientFilter::PermuteOrderArrayType poa = orienter->GetPermuteOrder();
+  //typename TOrientFilter::FlipAxesArrayType faa = orienter->GetFlipAxes();
+
+  //std::cout << "PermuteOrderArrayType: " << poa << std::endl;
+  //std::cout << "FlipAxesArrayType:     " << faa << std::endl;
+
   //=======================================================
   //ND 16 April 2015: Mod to reset direction to identity to
   //avoid adverse influence of interpolation artefacts when images are
   //almost but not quite aligned
   typename TImageType::Pointer out_image = orienter->GetOutput();
+
+  //std::cout << "Orientation:\n" << out_image->GetDirection() << std::endl;
 
   typename TImageType::DirectionType dir;
   dir.Fill(0);
@@ -161,6 +173,7 @@ ComputeDirectionDifference(TMatrix &matA, TMatrix &matB) {
 void
 MirorrPyramidWrapper
 ::ReadAndResampleImages() {
+  std::cout << "Boingggg!!!!!" << std::endl;
   //Read in images
   ImagePointer movingImage_in = __MirorrPyramidWrapper::ReadImage<ImageType>(movingName);
   ImagePointer fixedImage_in = __MirorrPyramidWrapper::ReadImage<ImageType>(fixedName);
@@ -196,6 +209,7 @@ MirorrPyramidWrapper
     //std::cerr << "#\n# Warning: Using the experimental --reorient feature.\n";
     //std::cerr << "#          Carefully inspecting the result is strongly advised.\n#" << std::endl;
 
+    std::cout << "Fixed: " << fixedName << std::endl;
     fixedImage = __MirorrPyramidWrapper::ReorientARIImage<ImageType>(fixedImage);
     fixedMask = __MirorrPyramidWrapper::ReorientARIImage<MaskType>(fixedMask);
   }
@@ -203,6 +217,7 @@ MirorrPyramidWrapper
     //std::cerr << "#\n# Warning: Using the experimental --reorient feature.\n";
     //std::cerr << "#          Carefully inspecting the result is strongly advised.\n#" << std::endl;
 
+    std::cout << "Moving: " << movingName << std::endl;
     movingImage = __MirorrPyramidWrapper::ReorientARIImage<ImageType>(movingImage);
     movingMask = __MirorrPyramidWrapper::ReorientARIImage<MaskType>(movingMask);
   }
