@@ -89,11 +89,16 @@ public:
   MirorrPyramidWrapper()
   { //Defaults
     do_not_register = false;
+    final_interpolator_name = "bspline";
+    invert_input_transform = false;
     invert_output_transform = false;
     verbosity = 1;
-    do_resample_to_128 = false;
-    do_reorient = true;
+    do_reorient_fixed = false;
+    do_reorient_moving = false;
     program_name = "mirorr";
+    do_force_resample_fixed = false;
+    do_force_resample_moving = false;
+    do_initialise_tfm_to_centre_images = true;
   }
 
   MirorrType & GetRegistrationPyramidObject() { return mirorr; }
@@ -116,18 +121,24 @@ public:
   const std::string & GetFixedName( ) const { return fixedName; }
   //!Name of file storing moving mask image
   void SetMovingMaskName( const std::string & _ss ) {movingMaskName = _ss; }
-  //! Do we start by resampling images to 128^3
-  void SetDoResampleTo128( bool in ) {do_resample_to_128 = in; }
-  //! Do we attempt to reorient the image in the RAI direction?
-  void SetDoReorientRAI(bool in ) {do_reorient = in;}
-
+  //! Do we attempt to reorient the image in the ARI direction?
+  void SetDoReorientFixedInARI(bool in ) {do_reorient_fixed = in;}
+  void SetDoReorientMovingInARI(bool in ) {do_reorient_moving = in;}
 
   //!Name of file string fixed image once it has been registered to moving
   //!image. If empty - no image is returned.
-  void SetLastTransformedFixedName( const std::string & _ss ) {lastTransformedFixedName = _ss; }
+  const std::string & GetLastTransformedFixedName()
+  { return lastTransformedFixedName; }
+  void SetLastTransformedFixedName( const std::string & _ss, bool force_resample = false )
+  { do_force_resample_fixed = force_resample; lastTransformedFixedName = _ss; }
+
   //!Name of file string moving image once fixed image been registered to moving
   //!image. If empty - no image is returned.
-  void SetLastTransformedMovingName( const std::string & _ss ) {lastTransformedMovingName = _ss; }
+  const std::string & GetLastTransformedMovingName()
+  { return lastTransformedMovingName; }
+  void SetLastTransformedMovingName( const std::string & _ss, bool force_resample = false )
+  { do_force_resample_moving = force_resample;  lastTransformedMovingName = _ss; }
+
   /** Name of file storing initial transform. If empty the image
    *  centres are aligned, with no rotation, and a file with the
    *  initial output is saved. */
@@ -135,12 +146,16 @@ public:
   //!Name of file storing final transform out. "final.tfm" by default.
   void SetFinalTransformName( const std::string & _ss ) {finalTransformName = _ss; }
   const std::string & GetFinalTransformName( ) const { return finalTransformName; }
+  void SetDoInitialiseTransformToCentreImages(bool in ) {do_initialise_tfm_to_centre_images = in;}
+
   /**Name of transform type based on corresponding ITK class names
    * e.g. Euler3DTransform, AffineTransform.  The names
    * "rigid","affine" and "translation" are converted to their
    * respective ITK classes */
   void SetTransformType( const std::string & _ss ) {transformType = _ss; }
   const std::string & GetTransformType( ) const { return transformType; }
+  //!Output moving to fixed  image instead of vice versa
+  void SetInvertInputTransform( bool in ) {invert_input_transform = in; }
   //!Output moving to fixed  image instead of vice versa
   void SetInvertOutputTransform( bool in ) {invert_output_transform = in; }
 
@@ -150,10 +165,18 @@ public:
   //! Should we not actually register the images and just apply transform to resample the images?
   void SetDoNotRegister( bool in ) { do_not_register = in; }
 
+  const std::string & GetFinalInterpolatorName()
+  { return final_interpolator_name; }
+  void SetFinalInterpolatorName( const std::string & _ss )
+  { final_interpolator_name = _ss; }
+
   // For pretty display
   void SetProgramName(std::string program_name) {this->program_name = program_name;}
 
 private:
+  //!Get the inverse transform, preserving the transform centre and the correct transform type
+  InputTransformType::Pointer GetInverseTransform( InputTransformType::Pointer tfm);
+
   //!Write a transform to a file using standard ITK transform file writer
   void writeParametersUsingItkTransformFileWriter( std::string tfmName, //itk::TransformBase::Pointer
       InputTransformType::Pointer tfm,
@@ -184,8 +207,12 @@ private:
   std::string movingName; //!Name of file storing moving image
   std::string fixedMaskName; //!Name of file storing fixed mask image
   std::string movingMaskName; //!Name of file storing moving mask image
-  bool do_resample_to_128; //! Do we start by resampling images to 128^3
-  bool do_reorient; //! Do we attempt to reorient the image in the RAI direction?
+  bool do_reorient_fixed; //! Do we attempt to reorient fixed image in the ARI direction?
+  bool do_reorient_moving; //! Do we attempt to reorient moving image in the ARI direction?
+  bool do_force_resample_fixed;
+  bool do_force_resample_moving;
+
+  bool do_initialise_tfm_to_centre_images;
 
   ImagePointer movingImage;
   ImagePointer fixedImage;
@@ -210,6 +237,7 @@ private:
    * "rigid","affine" and "translation" are converted to their
    * respective ITK classes */
   std::string transformType;
+
 //  /** Name of the blockmatcher metric. Abbreviations are converted
 //   * to full names as follows: "nc" to "normalized_correlation",
 //   * "sd" to "sum_of_squared_differences", "cr" to "correlation_ratio",
@@ -217,9 +245,11 @@ private:
 //  std::string blockMetricType;
 //
 //  bool doSaveIntermediateImages; //! Should we save images after each iteration?
+  bool invert_input_transform; //!Input moving to fixed  image instead of vice versa
   bool invert_output_transform; //!Output moving to fixed  image instead of vice versa
   int verbosity; //Verbosity of algorithm
   bool do_not_register; //Do not register the images. Just use transform to resample them
+  std::string final_interpolator_name;
   std::string program_name;
 };
 

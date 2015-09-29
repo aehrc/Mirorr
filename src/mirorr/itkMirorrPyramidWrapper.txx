@@ -18,12 +18,14 @@ PURPOSE.  See the above copyright notice for more information.
 #define ITKMIRORRPYRAMIDWRAPPER_TXX_
 
 #include "itkMirorrPyramidWrapper.h"
+#include "itkTransformUtils.h"
 #include <itkOrientImageFilter.h>
 #include <itkCenteredTransformInitializer.h>
 #include <itkNearestNeighborInterpolateImageFunction.h>
 #include <vnl/vnl_vector.h>
 #include <vnl/vnl_matrix.h>
 #include "itkIOUtils.h"
+#include <iomanip>
 
 namespace itk {
 
@@ -52,50 +54,67 @@ ReadImage(std::string image_file_name) {
   return image;
 }
 
-template<typename TImageType>
-typename TImageType::Pointer
-ResampleImage(typename TImageType::Pointer image,
-              const typename TImageType::SizeType &size,
-              const typename TImageType::SpacingType &spacing,
-              const bool is_nearest = false) {
-  typedef itk::IdentityTransform<double> TransformType;
-  typename TransformType::Pointer transform = TransformType::New();
-
-  //Optionally resample input images to 128^3
-  typedef itk::ResampleImageFilter<TImageType, TImageType> ResampleType;
-  typename ResampleType::Pointer resampler = ResampleType::New();
-  resampler->SetTransform(transform);
-  resampler->SetInput(image);
-
-  resampler->SetSize(size);
-  resampler->SetOutputSpacing(spacing);
-  resampler->SetOutputOrigin(image->GetOrigin());
-  resampler->SetOutputDirection(image->GetDirection());
-  resampler->SetOutputStartIndex(image->GetLargestPossibleRegion().GetIndex());
-
-  if (is_nearest) {
-    typedef itk::NearestNeighborInterpolateImageFunction<TImageType> InterpolatorType;
-    typename InterpolatorType::Pointer interpolator = InterpolatorType::New();
-    resampler->SetInterpolator(interpolator);
-  }
-
-  resampler->Update();
-
-  return resampler->GetOutput();
+//typedef itk::Image<double, 3> TImageType;
+template< typename TImageType >
+std::ostream & PrintImage( std::ostream & os, typename TImageType::Pointer image )
+{
+  typename TImageType::SizeType size = image->GetLargestPossibleRegion().GetSize();
+  typename TImageType::PointType origin = image->GetOrigin();
+  typename TImageType::SpacingType spacing = image->GetSpacing();
+  typename TImageType::DirectionType dir = image->GetDirection();
+  os<<"<Image> size=["<<size[0]<<" "<<size[1]<<" "<<size[2]<<"], "
+    <<"spacing=["<<std::setprecision(3)<<spacing[0]<<" "<<spacing[1]<<" "<<spacing[2]<<"], "
+    <<"origin=["<<std::setprecision(5)<<origin[0]<<" "<<origin[1]<<" "<<origin[2]<<"], "
+    <<"dir=["<<std::setprecision(3)<<dir[0][0]<<" "<<dir[0][1]<<" "<<dir[0][2]<<"; "
+    <<dir[1][0]<<" "<<dir[1][1]<<" "<<dir[1][2]<<"; "
+    <<dir[2][0]<<" "<<dir[2][1]<<" "<<dir[2][2]<<"];";
+  return os;
 }
 
 template<typename TImageType>
 typename TImageType::Pointer
-ReorientRAIImage(typename TImageType::Pointer image) {
+ReorientARIImage(typename TImageType::Pointer image) {
   typedef typename itk::OrientImageFilter<TImageType, TImageType> TOrientFilter;
+
+  //std::cout << "Orientation:\n" << image->GetDirection() << std::endl;
 
   typename TOrientFilter::Pointer orienter = TOrientFilter::New();
   orienter->UseImageDirectionOn();
-  orienter->SetDesiredCoordinateOrientation(itk::SpatialOrientation::ITK_COORDINATE_ORIENTATION_RAI);
+  orienter->SetDesiredCoordinateOrientation(
+      itk::SpatialOrientation::ITK_COORDINATE_ORIENTATION_ARI);
   orienter->SetInput(image);
   orienter->Update();
 
-  return orienter->GetOutput();
+
+  //itk::OrientImageFilter: permute first, and then flip
+  //typename TOrientFilter::PermuteOrderArrayType poa = orienter->GetPermuteOrder();
+  //typename TOrientFilter::FlipAxesArrayType faa = orienter->GetFlipAxes();
+
+  //std::cout << "PermuteOrderArrayType: " << poa << std::endl;
+  //std::cout << "FlipAxesArrayType:     " << faa << std::endl;
+
+  //=======================================================
+  //ND 16 April 2015: Mod to reset direction to identity to
+  //avoid adverse influence of interpolation artefacts when images are
+  //almost but not quite aligned
+  typename TImageType::Pointer out_image = orienter->GetOutput();
+
+  //std::cout << "Orientation:\n" << out_image->GetDirection() << std::endl;
+
+  typename TImageType::DirectionType dir;
+  dir.Fill(0);
+  dir[0][1] = 1;
+  dir[1][0] = 1;
+  dir[2][2] = 1;
+  out_image->SetDirection(dir);
+
+  typename TImageType::PointType origin;
+  origin[0] = 0; origin[1] = 0; origin[2] = 0;
+  out_image->SetOrigin(origin);
+  return out_image;
+  //=======================================================
+
+  //return orienter->GetOutput();
 }
 
 template<typename TMatrix>
@@ -154,6 +173,7 @@ ComputeDirectionDifference(TMatrix &matA, TMatrix &matB) {
 void
 MirorrPyramidWrapper
 ::ReadAndResampleImages() {
+  std::cout << "Boingggg!!!!!" << std::endl;
   //Read in images
   ImagePointer movingImage_in = __MirorrPyramidWrapper::ReadImage<ImageType>(movingName);
   ImagePointer fixedImage_in = __MirorrPyramidWrapper::ReadImage<ImageType>(fixedName);
@@ -179,35 +199,27 @@ MirorrPyramidWrapper
     fixedMask_in->FillBuffer(255);
   }
 
-  //Resample to 128^3 if required
-  if (do_resample_to_128) {
-    //Set the moving and fixed images
-    itk::Size<DIMENSION> size128;
-    size128.Fill(128);
-    SpacingType spacing128 =
-            GetMaxSpacingForResize(movingImage_in, fixedImage_in, size128);
-
-    movingImage = __MirorrPyramidWrapper::ResampleImage<ImageType>(movingImage_in, size128, spacing128);
-    fixedImage = __MirorrPyramidWrapper::ResampleImage<ImageType>(fixedImage_in, size128, spacing128);
-    movingMask = __MirorrPyramidWrapper::ResampleImage<MaskType>(fixedMask_in, size128, spacing128, true);
-    fixedMask = __MirorrPyramidWrapper::ResampleImage<MaskType>(fixedMask_in, size128, spacing128, true);
-  }
-  else {
-    movingImage = movingImage_in;
-    fixedImage = fixedImage_in;
-    movingMask = movingMask_in;
-    fixedMask = fixedMask_in;
-  }
+  movingImage = movingImage_in;
+  fixedImage = fixedImage_in;
+  movingMask = movingMask_in;
+  fixedMask = fixedMask_in;
 
   // Try to re-orient the images
-  if (this->do_reorient) {
-    std::cerr << "#\n# Warning: Using the experimental --reorient feature.\n";
-    std::cerr << "#          Carefully inspecting the result is strongly advised.\n#" << std::endl;
+  if (this->do_reorient_fixed) {
+    //std::cerr << "#\n# Warning: Using the experimental --reorient feature.\n";
+    //std::cerr << "#          Carefully inspecting the result is strongly advised.\n#" << std::endl;
 
-    movingImage = __MirorrPyramidWrapper::ReorientRAIImage<ImageType>(movingImage);
-    fixedImage = __MirorrPyramidWrapper::ReorientRAIImage<ImageType>(fixedImage);
-    movingMask = __MirorrPyramidWrapper::ReorientRAIImage<MaskType>(movingMask);
-    fixedMask = __MirorrPyramidWrapper::ReorientRAIImage<MaskType>(fixedMask);
+    std::cout << "Fixed: " << fixedName << std::endl;
+    fixedImage = __MirorrPyramidWrapper::ReorientARIImage<ImageType>(fixedImage);
+    fixedMask = __MirorrPyramidWrapper::ReorientARIImage<MaskType>(fixedMask);
+  }
+  if (this->do_reorient_moving) {
+    //std::cerr << "#\n# Warning: Using the experimental --reorient feature.\n";
+    //std::cerr << "#          Carefully inspecting the result is strongly advised.\n#" << std::endl;
+
+    std::cout << "Moving: " << movingName << std::endl;
+    movingImage = __MirorrPyramidWrapper::ReorientARIImage<ImageType>(movingImage);
+    movingMask = __MirorrPyramidWrapper::ReorientARIImage<MaskType>(movingMask);
   }
 
   //Check if the two images have the same direction matrix and issue a warning if not
@@ -221,24 +233,44 @@ MirorrPyramidWrapper
   }
 }
 
+
+MirorrPyramidWrapper::InputTransformType::Pointer
+MirorrPyramidWrapper::
+GetInverseTransform( InputTransformType::Pointer tfm)
+{
+  InputTransformType::Pointer tfm_inverse__ =
+      dynamic_cast<InputTransformType *>( tfm->GetInverseTransform().GetPointer());
+
+#if ITK_VERSION_MAJOR < 4 || (ITK_VERSION_MAJOR == 4 && ITK_VERSION_MINOR < 7)
+    updateCenter(tfm_inverse__, tfm->GetCenter());  // Old ITK version do not preserve centers
+#endif
+
+  //tfm_inverse__ is of class MatrixOffsetTransformBase_double_3_3 (unsupported for input in mirorr)
+  //so we need to convert to the correct user defined IO type
+  InputTransformType::Pointer tfm_inverse = CreateAppropriateTransform( this->transformType );
+  tfm_inverse->SetCenter(tfm_inverse__->GetCenter());
+  tfm_inverse->SetTranslation(tfm_inverse__->GetTranslation());
+  tfm_inverse->SetMatrix(tfm_inverse__->GetMatrix());
+
+  return tfm_inverse;
+}
+
 //!Write a transform to a file using standard ITK transform file writer
 void
 MirorrPyramidWrapper::
 writeParametersUsingItkTransformFileWriter(
         std::string tfmName, //itk::TransformBase::Pointer
         InputTransformType::Pointer tfm,
-        bool invert) {
-  InputTransformType::Pointer tfm2 = tfm;
-  //The inversion here means output is Rigid3DTransform_double_3_3 - which causes problems later
-  if (invert) {
-    InputTransformType::Pointer tfm_inverse =
-            dynamic_cast<InputTransformType *>( tfm->GetInverseTransform().GetPointer());
+        bool invert)
+{
+  if (tfmName.empty()) {
+    return;
+  }
 
-    typedef AffineTransform<double, DIMENSION> AffineTransformType;
-    AffineTransformType::Pointer tfm_affine = AffineTransformType::New();
-    tfm_affine->SetTranslation(tfm_inverse->GetTranslation());
-    tfm_affine->SetMatrix(tfm_inverse->GetMatrix());
-    tfm2 = dynamic_cast<InputTransformType *>( tfm_affine.GetPointer());
+  InputTransformType::Pointer tfm2 = tfm;
+
+  if (invert) {
+    tfm2 = this->GetInverseTransform(tfm);
   }
 
   //Write the transform to a file
@@ -290,23 +322,24 @@ readParametersUsingItkTransformFileReader(
       throw(std::runtime_error(ss.str()));
     }
 
-    if (bInvertTransform)
-      affineTransform = dynamic_cast<InputTransformType *>(
-              affineTransform->GetInverseTransform().GetPointer());
-
-    //Output the transform
     //Ensure input is orthogonal for Euler transform
     if (className.find("Euler") != std::string::npos) {
       vnl_matrix_fixed<double, 3, 3> matrix =
-              affineTransform->GetMatrix().GetVnlMatrix();
+          affineTransform->GetMatrix().GetVnlMatrix();
       matrix.set_row(2, vnl_cross_3d(
-              matrix.get_row(0),
-              matrix.get_row(1)));
+          matrix.get_row(0),
+          matrix.get_row(1)));
       InputTransformType::MatrixType tmatrix(matrix);
 
       affineTransform->SetMatrix(tmatrix);
     }
 
+    if (bInvertTransform) {
+      affineTransform = this->GetInverseTransform(affineTransform);
+    }
+
+    //Assign the transform parameter to the output argument
+    tfm->SetCenter(affineTransform->GetCenter());
     tfm->SetMatrix(affineTransform->GetMatrix());
     tfm->SetTranslation(affineTransform->GetTranslation());
 
@@ -421,7 +454,7 @@ ReadInputTransform(
   }
   else {
     if (readParametersUsingItkTransformFileReader(
-            transformFileName, transform, _invert_output_transform)) {
+            transformFileName, transform, _invert_output_transform) != 0) {
       std::ostringstream name;
       name << "__tmp_example-" << transform->GetTransformTypeAsString() << ".tfm";
 
@@ -470,16 +503,14 @@ Update()
   //Create input structure for MirorrPyramidImplement and fill this in.
   ReadAndResampleImages();
 
-  InputTransformType::Pointer transform = CreateAppropriateTransform( transformType );
-  if( verbosity >= 1 )
-    std::cout << "Transform Class: " << transform->GetNameOfClass() << std::endl;
+  InputTransformType::Pointer transform = CreateAppropriateTransform( this->transformType );
+  transform->SetIdentity();
+  if( verbosity >= 1 ) {
+    std::cout << "Transform Class:                 " << transform->GetNameOfClass() << std::endl;
+  }
 
   //Centre the transforms on the image centre
-//  ImageType::PointType centre = movingImage->GetOrigin();
-//  for(int ii=0; ii<3; ++ii )
-//    centre[ii] += 0.5*movingImage->GetSpacing()[ii] * movingImage->GetLargestPossibleRegion().GetSize(ii);
-//  transform->SetCenter( centre );
-//  transform->SetIdentity();
+  if( initialTransformName == "" && do_initialise_tfm_to_centre_images )
   {
     typedef itk::CenteredTransformInitializer< TransformType, ImageType, ImageType > TransformInitializer;
     TransformInitializer::Pointer initialiser =  TransformInitializer::New();
@@ -489,10 +520,17 @@ Update()
     initialiser->GeometryOn();
     initialiser->InitializeTransform();
   }
-  ReadInputTransform( transform, initialTransformName, fixedName,
-      invert_output_transform );
+  ReadInputTransform( transform, initialTransformName, fixedName, invert_input_transform );
 
-  //Register the two images
+  //Display the input image
+  if( verbosity >= 2 ) {
+    std::cout<<"Loaded  FIXED: "; __MirorrPyramidWrapper::PrintImage<ImageType>(std::cout,fixedImage); std::cout<<"\n";
+    std::cout<<"Loaded MOVING: "; __MirorrPyramidWrapper::PrintImage<ImageType>(std::cout,movingImage); std::cout<<"\n";
+  }
+
+  //===========================================================================
+  // Register the two images
+  //===========================================================================
   mirorr.SetFixedImage( fixedImage );
   mirorr.SetMovingImage( movingImage );
   mirorr.SetFixedMask( fixedMask );
@@ -513,19 +551,36 @@ Update()
     std::cout << "\nINFO: Not running registration as requested." << std::endl;
   }
 
-  //Save the parameters
+  //Save the registration transform parameters
   writeParametersUsingItkTransformFileWriter( finalTransformName,
                                               transform,
                                               invert_output_transform );
 
+  //===========================================================================
+  // Saving resampled / reoriented registered images, as per user request
+  //===========================================================================
+
   // Save the shifted image if requested to by the user
   if( !lastTransformedFixedName.empty() )
   {
-    ImagePointer resampledFixedImage =
-        mirorr.GetResampledImage( dynamic_cast<TransformType*>( transform.GetPointer() ) );
+    ImagePointer resampledFixedImage;
+    if( verbosity >= 2 ) {
+      std::cout<<"Transforming FIXED: "; __MirorrPyramidWrapper::PrintImage<ImageType>(std::cout,fixedImage); std::cout<<"\n";
+    }
+
+    //Favour reorienting if rigid unless forced
+    if( !do_force_resample_fixed && (transformType == "rigid" || transformType == "quat")  )
+      resampledFixedImage =
+          mirorr.GetReorientedImage( dynamic_cast<TransformType*>( transform.GetPointer() ), false );
+    else
+      resampledFixedImage =
+          mirorr.GetResampledImage( dynamic_cast<TransformType*>( transform.GetPointer() ), false, final_interpolator_name );
 
     typedef itk::ImageFileWriter< ImageType > WriterType;
 
+    if( verbosity >= 2 ) {
+      std::cout<<"Output FIXED: "; __MirorrPyramidWrapper::PrintImage<ImageType>(std::cout,resampledFixedImage); std::cout<<"\n";
+    }
     WriterType::Pointer writer = WriterType::New();
     writer->SetInput( resampledFixedImage );
     writer->SetFileName( lastTransformedFixedName );
@@ -542,8 +597,21 @@ Update()
   //And save the shifted image if requested to by the user
   if( !lastTransformedMovingName.empty() )
   {
-    ImagePointer resampledMovingImage =
-        mirorr.GetResampledImage( dynamic_cast<TransformType*>( transform.GetPointer() ), true );
+    ImagePointer resampledMovingImage;
+    if( verbosity >= 2 ) {
+      std::cout<<"Transforming MOVING: "; __MirorrPyramidWrapper::PrintImage<ImageType>(std::cout,movingImage); std::cout<<"\n";
+    }
+
+    //Favour reorienting if rigid unless forced
+    if( !do_force_resample_moving && (transformType == "rigid" || transformType == "quat")  )
+      resampledMovingImage =
+          mirorr.GetReorientedImage( dynamic_cast<TransformType*>( transform.GetPointer() ), true );
+    else
+      resampledMovingImage =
+          mirorr.GetResampledImage( dynamic_cast<TransformType*>( transform.GetPointer() ), true, final_interpolator_name );
+    if( verbosity >= 2 ) {
+      std::cout<<"Output MOVING: "; __MirorrPyramidWrapper::PrintImage<ImageType>(std::cout,resampledMovingImage); std::cout<<"\n";
+    }
 
     typedef itk::ImageFileWriter< ImageType > WriterType;
 
@@ -559,11 +627,33 @@ Update()
     }
   }
 
-
-  if( verbosity >= 1 )
-  {
+  //===========================================================================
+  // Console output
+  //===========================================================================
+  if( verbosity >= 1 ) {
     std::cout << "\nRegistration and all IO completed in: "
-              << std::setprecision(4) << Mirorr_timer.elapsed().wall/1.E9 << "s" << std::endl;
+                 << std::setprecision(4) << Mirorr_timer.elapsed().wall / 1.E9 << "s" << std::endl;
+  }
+
+  //if( !do_not_register && finalTransformName.empty() ) {
+    TransformType::Pointer local_tfm = transform;
+    if (this->invert_output_transform) {
+      local_tfm = this->GetInverseTransform(transform);
+    }
+
+    std::cout
+      << "\nNot saving the final transform to a file, as requested.\n"
+      << "Final transform specification:" << std::endl
+      << "Transform Class:                 " << local_tfm->GetNameOfClass() << std::endl;
+    std::cout
+      << std::fixed << std::setprecision(8)
+      << "Transformation parameters:       " << PrettyPrint(local_tfm->GetParameters(), 12) << "\n"
+      << "Transformation fixed parameters: " << PrettyPrint(local_tfm->GetFixedParameters(), 12)
+      << " (usually this is the rotation center)\n" << std::endl;
+  //}
+
+  if( verbosity >= 1 && !finalTransformName.empty() )
+  {
     std::cout << "Output Tfm written here: " << finalTransformName << std::endl;
 
     if( verbosity >= 1 && !do_not_register )

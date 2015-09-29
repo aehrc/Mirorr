@@ -1,7 +1,7 @@
 /*=========================================================================
 Program: mirorr
 Module: mirorr.cxx
-Author: Nicholas Dowson
+Author: David Rivest-Henault and Nicholas Dowson
 Created: Mon 11 Feb 2009
 
 Copyright (c) 2009-15 CSIRO. All rights reserved.
@@ -95,16 +95,25 @@ int main( int argc, char* argv[] )
   //Defaults ============================================================
   // Declare the supported options.
   po::options_description all_options(
-      "mirorr\n\n"
-"Synopsis: The command line interface to a robust registration "
-"algorithm based on block matching followed by a final refinement "
-"step using standard mutual information maximisation. The algorithm "
-"seeks a transform "
-"from a 'moving' to a 'fixed' image that aligns the two. By convention "
-"the fixed image is sampled once for every voxel in the 'moving' "
-"image.\n"
-      "Usage:\n"
-      "  mirorr movingImage fixedImage [lastTfm] [startTfm] ...  ");
+  "mirorr\n\n"
+  "Synopsis: The command line interface to a robust registration "
+  "algorithm based on block matching. The algorithm seeks a transform "
+  "from a 'moving' to a 'fixed' image that best aligns the two.\n"
+  "Usage:\n"
+  "  mirorr movingImage fixedImage [final.tfm] [start.tfm] ... \n\n"
+  "Other examples:\n"
+  "  To apply transform to moving image:\n"
+  "    mirorr movingImage fixedImage last.tfm -R --save-reoriented-moving moving_tfmd.nii.gz\n"
+  "  To apply inverse transform to fixed image:\n"
+  "    mirorr movingImage fixedImage last.tfm -R --save-reoriented-fixed fixed_tfmd.nii.gz\n"
+  "  To run fresh registration from a baseline, save moving inplace, and subsequently refine registration:\n"
+  "    mirorr moving.nii.gz fixed.nii.gz last.tfm --fresh --reorient-moving --save-reoriented-moving moving.nii.gz\n"
+  "    mirorr moving.nii.gz fixed.nii.gz last.tfm refined.tfm --reorient-moving --save-reoriented-moving moving.nii.gz\n"
+  "  To reset fixed (or moving) image to identity orientation "
+  "(Useful for baselining fixed image if reorient-fixed was used before):\n"
+  "    # mirorr movingImage fixedImage last.tfm --reorient-fixed   ## From before\n"
+  "    mirorr movingImage fixedImage --fresh --reorient-fixed -R -0 --save-reoriented-fixed baselineFixed.nii.gz\n"
+  );
 
   po::options_description general_options(
       "General options to set input and output images and transforms");
@@ -116,25 +125,42 @@ int main( int argc, char* argv[] )
     ("last-tfm,l", po::value<std::string>()->default_value( std::string("") ), //
         "File with optimised transformation from moving to fixed image.")
     ("start-tfm,s", po::value<std::string>()->default_value( std::string("") ),
-        "File with initial transformation")
+        "File with initial transformation (will not be overwritten unless it is the same as last-tfm)")
     ("tfm-type,t", po::value<std::string>()->default_value("rigid"),
         "Type of transformation: rigid/affine")
     ("reg-mode", po::value<std::string>()->default_value("symmetric"),
             "Registration mode: classic/symmetric")
     ("do-not-register,R",
-        "Do not run registration, just use transform file to resample the fixed and/or moving image.")
-    ("save-fixed", po::value<std::string>()->default_value(""),
-        "Save fixed image (in moving image's space) after registration")
-    ("save-moving", po::value<std::string>()->default_value(""),
-        "Save moving image (in fixed image's space) after registration")
+        "Do not run registration, just use transform file to resample the "
+        "fixed and/or moving image.")
+    ("save-reoriented-fixed", po::value<std::string>(),
+     "Save fixed image (in moving image space) after registration. "
+             "If rigid transform, only direction & origin updated, no resampling "
+             "occurs.")
+    ("save-reoriented-moving", po::value<std::string>(),
+     "Save moving image (in fixed image space) after registration. "
+             "If rigid transform, only direction & origin updated, no resampling "
+             "occurs.")
+    ("save-resampled-fixed", po::value<std::string>(),
+     "Save fixed image (resampling on moving image's space and grid) "
+             "after registration. ")
+    ("save-resampled-moving", po::value<std::string>(),
+     "Save moving image (resampling on fixed image's space and grid) "
+             "after registration. ")
+    ("final-interpolator", po::value<std::string>()->default_value("bspline"),
+     "Type of interpolator used to save the final resampled images. Valid options: "
+     "nn, linear, bspline, sinc")
     ("moving-mask,M", po::value<std::string>()->default_value(""),
         "Specify Moving Image")
     ("fixed-mask,F", po::value<std::string>()->default_value(""),
         "Specify Fixed Image")
     ("switch-images,S",
-        "Switch images, so transform is from fixed to moving image.")
+        "Switch images, so transform is from fixed to moving image. "
+        "DEPRECATED - No longer needed with symmetric approach")
     ("invert-last-tfm,I",
-        "Invert output transform. Deprecated. Use --switch-images")
+        "Invert output transform. (Maybe use it with --invert-start-tfm)")
+    ("invert-start-tfm,i",
+        "Invert input transform. (Maybe use it with --invert-last-tfm)")
     ("nthreads", po::value<int>()->default_value(0),
         "Number of block matching threads. "
         "Default is 1 thread per available CPU core.")
@@ -153,7 +179,7 @@ int main( int argc, char* argv[] )
       "Algorithm Options\n"
       "Control the registration algorithm. \nA hierarchical approach is "
       "used on an image pyramid. By convention pyramid level 1 indicates "
-      "the moving image is resampled to a resolution of ~16^3. Each increase "
+      "the moving image is resampled to a resolution of >=16^3. Each increase "
       "indicates a doubling of resolution. The maximum level ensures the "
       "moving image is not downsampled at all. The resolutions of the two "
       "images are matched to ensure approximately equal spacing. "
@@ -164,22 +190,26 @@ int main( int argc, char* argv[] )
     ("pyr-start,a", po::value<int>()->default_value(1),
         "First pyramid level to be processed. (-ve numbers count back from max.)")
     ("pyr-switch,b", po::value<int>()->default_value(0), //
-        "Last pyramid level of block matching. Following levels use ITK Mutual info. (-ve numbers count back from max. 0==max)")
+        "DEPRECATED Last pyramid level of block matching. Following levels use ITK Mutual "
+        "info. (-ve numbers count back from max. 0==max) DEPRECATED")
     ("pyr-end,c", po::value<int>()->default_value(0), //
-        "Last pyramid level to be processed. (-ve numbers count back from max. 0==max)")
+        "Last pyramid level to be processed. (-ve numbers count back from max. "
+        "0==max)")
     ("pyr-num,d", po::value<int>()->default_value(1024),
-         "Number of levels in the pyramid (default is to create as many level as maxDataSize > 32)")
+         "Number of levels in the pyramid (default is to create as many levels "
+         "as maxDataSize > 32)")
     ("pyr-min-size,e", po::value<int>()->default_value(32),
          "Minimal image dimension at the first level of the pyramid")
     ("resampling-mode", po::value<std::string>()->default_value("middle"), //valid: basic, middle, max-resolution, max-size
-          "Inner loop resampling mode: basic, middle, max-resolution, max-size, fixed, moving")
+          "Inner loop resampling mode: basic, middle, max-resolution, max-size, "
+          "fixed, moving")
     ("no-bm",
         "Do not use block matching algorithm (primary registration)")
     ("use-itk",
-        "Do not use mutual information maximisation (refining / secondary registration)")
+        "DEPRECATED Do not use mutual information maximisation (refining / secondary registration) DEPRECATED")
     ("iterations,n", po::value<int>()->default_value(0),
         "Number of iterations. Set negative to halve iterations each pyramid level")
-    ("portion-kept", po::value<double>()->default_value(0.5), //
+    ("portion-kept", po::value<double>()->default_value(0.5),
         "Portion of image, by volume, to consider.")
 #ifdef USE_OPENCL
     ("use-gpu-bm",
@@ -191,11 +221,26 @@ int main( int argc, char* argv[] )
         "line in your script:"
         "\"export CUDA_VISIBLE_DEVICES=`gpu-which | sed 's/\"//g'`\"") //
 #endif
-    ("resample",
-        "Resample input image to 128^3 first. Deprecated.") //
-    ("reorient",
-            "Reorient the volume in the RAI direction first. Experimental.") //
-    ("blockmetric", po::value<std::string>()->default_value("nc"), //
+    ("reorient-fixed",
+        "Reorient fixed image in the RAI direction first, and set to reset "
+        "position with identity directions and zero origin. This enables "
+        "in-place image modification with re-use old transforms.")
+    ("reorient-moving",
+        "Reorient moving image in the RAI direction first, and set to reset "
+        "position with identity directions and zero origin. This enables "
+        "in-place image modification with re-use old transforms.")
+    ("save-fixed", po::value<std::string>(),
+     "Save fixed image (in moving image space) after registration. "
+             "If rigid transform, only direction & origin updated, no resampling "
+             "occurs. DEPRECATED - will be replaced by --save-resampled-fixed")
+    ("save-moving", po::value<std::string>(),
+     "Save moving image (in fixed image space) after registration. "
+             "If rigid transform, only direction & origin updated, no resampling "
+             "occurs. DEPRECATED - will be replaced by --save-resampled-moving")
+    ("no-centering-init,0",
+       "Turn off initialisation of transform to overlap image centres.")
+
+    ("blockmetric", po::value<std::string>()->default_value("nc"),
         "metric used: normalized correlation (nc), sum of squared differences (sd), "
         "correlation ratio (cr), non-parametric window mutual information (mi)"
 #ifdef USE_NPW
@@ -234,8 +279,7 @@ int main( int argc, char* argv[] )
   //f F h H l L m M n q R s S t v b
 
   po::positional_options_description positionalDescription;
-  positionalDescription.add("moving", 1).add("fixed",1).add("last-tfm",1)
-  .add("start-tfm",1);
+  positionalDescription.add("moving", 1).add("fixed",1).add("last-tfm",1).add("start-tfm",1);
 
   po::variables_map variablesMap;
   po::store(po::command_line_parser(argc, argv).
@@ -370,15 +414,22 @@ int main( int argc, char* argv[] )
     mirorr.SetMovingMaskName( variablesMap["moving-mask"].as<std::string>() );
     mirorr.SetFixedMaskName( variablesMap["fixed-mask"].as<std::string>() );
     }
-  mirorr.SetDoResampleTo128( variablesMap.count("resample") > 0 );
-  mirorr.SetDoReorientRAI( variablesMap.count("reorient") > 0 );
+
+  mirorr.SetDoReorientFixedInARI( variablesMap.count("reorient-fixed") == true );
+  mirorr.SetDoReorientMovingInARI( variablesMap.count("reorient-moving") == true );
+  if( variablesMap.count("no-centering-init") )
+    mirorr.SetDoInitialiseTransformToCentreImages(false);
+
+  //Should we bother applying registration
+  bool do_not_register = variablesMap.count("do-not-register") > 0;
+  mirorr.SetDoNotRegister( do_not_register );
 
   //Read in the name of the file for the final transformation or create one
   //from fixed image name
   std::string output_transform_file_name = variablesMap["last-tfm"].as<std::string>();
   std::string  input_transform_file_name = variablesMap["start-tfm"].as<std::string>();
 
-  if( output_transform_file_name.empty() )
+  if( output_transform_file_name.empty() && ! do_not_register )
   {
     //Two basenames to catch .nii.gz
     output_transform_file_name =
@@ -386,12 +437,11 @@ int main( int argc, char* argv[] )
     output_transform_file_name += "_tfmFinal.tfm";
     std::cerr << "WARNING: No output transform supplied. Setting to: "
     << output_transform_file_name << std::endl;
+    std::cerr << "INFO:    To avoid saving the last transform, use '--last-tfm ignore'" << std::endl;
+  } else if( output_transform_file_name == "ignore" ) {
+    output_transform_file_name = "";
   }
   mirorr.SetFinalTransformName( output_transform_file_name );
-
-  //Should we bother applying registration
-  bool do_not_register = variablesMap.count("do-not-register") > 0;
-  mirorr.SetDoNotRegister( do_not_register );
 
   //Check if output file exists
   if( input_transform_file_name.empty()
@@ -413,8 +463,38 @@ int main( int argc, char* argv[] )
   mirorr.SetInitialTransformName( input_transform_file_name );
 
   //Specify name of file to save fixed image to after registration
-  mirorr.SetLastTransformedFixedName( variablesMap["save-fixed"].as<std::string>() );
-  mirorr.SetLastTransformedMovingName( variablesMap["save-moving"].as<std::string>() );
+  if(variablesMap.count("save-fixed"))
+    mirorr.SetLastTransformedFixedName( variablesMap["save-fixed"].as<std::string>(), true);
+  if(variablesMap.count("save-moving"))
+    mirorr.SetLastTransformedMovingName( variablesMap["save-moving"].as<std::string>(), true);
+  if(variablesMap.count("save-reoriented-fixed"))
+    mirorr.SetLastTransformedFixedName( variablesMap["save-reoriented-fixed"].as<std::string>() );
+  if(variablesMap.count("save-reoriented-moving"))
+    mirorr.SetLastTransformedMovingName( variablesMap["save-reoriented-moving"].as<std::string>() );
+
+  if(variablesMap.count("save-resampled-fixed"))
+  {
+    if (!mirorr.GetLastTransformedFixedName().empty())
+      throw std::runtime_error("Cannot use save-resampled-fixed and save-reoriented-fixed arguments at same time.");
+    mirorr.SetLastTransformedFixedName(variablesMap["save-resampled-fixed"].as<std::string>(), true);
+  }
+  if(variablesMap.count("save-resampled-moving"))
+  {
+    if (!mirorr.GetLastTransformedMovingName().empty())
+      throw std::runtime_error("Cannot use save-resampled-moving and save-reoriented-moving arguments at same time.");
+    mirorr.SetLastTransformedMovingName(variablesMap["save-resampled-moving"].as<std::string>(), true);
+  }
+
+  if(variablesMap.count("final-interpolator"))
+  {
+      mirorr.SetFinalInterpolatorName(variablesMap["final-interpolator"].as<std::string>());
+  }
+
+  if( variablesMap.count("invert-start-tfm") )
+    mirorr.SetInvertInputTransform( true );
+  else
+    mirorr.SetInvertInputTransform( false );
+
   if( variablesMap.count("invert-last-tfm") )
     mirorr.SetInvertOutputTransform( true );
   else
@@ -490,6 +570,13 @@ int main( int argc, char* argv[] )
   mirorr.GetRegistrationPyramidObject().GetPyramidScheduleTuner()->SetMinLength(minBlockLength);
   mirorr.GetRegistrationPyramidObject().GetPyramidScheduleTuner()->SetLevelMin( aa );
   mirorr.GetRegistrationPyramidObject().GetPyramidScheduleTuner()->SetLevelMax( cc );
+
+  //Lock switch level to end pyramid level if we're not using itk (default)
+  if( !do_use_itk )
+    bb = cc;
+  else
+    std::cerr<<"WARNING: the use of itk registration is deprecated and will be removed in later versions."<<std::endl;
+
   mirorr.GetRegistrationPyramidObject().SetLevelToChangeMethod( bb );
   mirorr.GetRegistrationPyramidObject().SetUseBlockMatchingAlgorithm( variablesMap.count("no-bm") == 0 );
   mirorr.GetRegistrationPyramidObject().SetUseMutualInformationAlgorithm( do_use_itk );

@@ -22,12 +22,17 @@ PURPOSE.  See the above copyright notice for more information.
 #include "itkMirorrPyramidImplement.h"
 #include <itkCommand.h>
 #include <itkResampleImageFilter.h>
+#include <itkBSplineInterpolateImageFunction.h>
+#include <itkWindowedSincInterpolateImageFunction.h>
 #include <itkImageFileWriter.h>
 #include <boost/timer/timer.hpp>
 #include <string>
 #include <iomanip>
 #include <exception>
 #include "itkIOUtils.h"
+//#include "../../../../../../usr/local/cuda-7.0/targets/x86_64-linux/include/nppdefs.h"
+
+#include <itkChangeInformationImageFilter.h>
 
 
 //  The following section of code implements an observer
@@ -487,20 +492,212 @@ MirorrPyramidImplement/*<DIMENSION>*/
   level_timer.start();
 }
 
+/*typename*/ MirorrPyramidImplement/*<DIMENSION>*/::ImagePointer
+MirorrPyramidImplement/*<DIMENSION>*/
+::GetReorientedImage(
+    /*typename*/ TransformType::Pointer itransform,
+    bool resample_moving
+)
+{
+  typedef itk::ChangeInformationImageFilter< ImageType > ChangeInfoType;
+  TransformType::Pointer transform = itransform;
+
+  ChangeInfoType::Pointer imageChanger = ChangeInfoType::New();
+  ImageType::Pointer image;
+
+  if( resample_moving )
+  {
+    image = movingImage;
+    itransform = dynamic_cast<TransformType*>(
+        transform->GetInverseTransform().GetPointer() );
+  }
+  else
+    image = fixedImage;
+  imageChanger->SetInput( image );
+  imageChanger->ChangeDirectionOn();
+  imageChanger->ChangeOriginOn();
+
+  //Get relevant information
+  typedef ImageType::DirectionType DirectionType;
+  typedef ImageType::PointType PointType;
+  typedef ImageType::SpacingType SpacingType;
+  DirectionType in_direction = image->GetDirection();
+  PointType in_origin = image->GetOrigin();
+  //SpacingType in_spacing = image->GetSpacing();
+
+  DirectionType out_direction;
+  PointType out_origin;
+  SpacingType out_spacing;
+
+  //Get the matrix manually
+  {
+    for(int ii=0;ii<3; ++ii)
+    {
+      itk::Point<double, 3> ipts_4d, ipts_4d_zero;
+      itk::Point<double, 3> ipts_3d, ipts_3d_zero, ipts_3d_diff;
+      itk::Point<double, 3> opts_3d, opts_3d_zero, opts_3d_diff;
+
+      itk::ContinuousIndex<double,3> index;
+      index.Fill(0);
+      image->TransformContinuousIndexToPhysicalPoint( index, ipts_4d_zero );
+      index[ii] = 1;
+      image->TransformContinuousIndexToPhysicalPoint( index, ipts_4d );
+
+      for(int jj=0; jj<3; ++jj ) ipts_3d[jj] = ipts_4d[jj];
+      for(int jj=0; jj<3; ++jj ) ipts_3d_zero[jj] = ipts_4d_zero[jj];
+
+      double mag_3d_diff = 0;
+      for(int jj=0; jj<3; ++jj )
+      {
+        ipts_3d_diff[jj] = ipts_4d[jj]-ipts_4d_zero[jj];
+        mag_3d_diff += ipts_3d_diff[jj]*ipts_3d_diff[jj];
+      }
+      //Normalise
+      mag_3d_diff = sqrt(mag_3d_diff);
+      for(int jj=0; jj<3; ++jj )
+        ipts_3d_diff[jj] /= mag_3d_diff;
+
+      //std::cout<<"Point "<<ii<<": "<<ipts_3d_diff<<" ---> ";
+
+      opts_3d = transform->TransformPoint( ipts_3d );
+      opts_3d_zero = transform->TransformPoint( ipts_3d_zero );
+      opts_3d_diff = transform->TransformPoint( ipts_3d_diff );
+
+      mag_3d_diff = 0;
+      for(int jj=0; jj<3; ++jj )
+      {
+        opts_3d_diff[jj] = opts_3d[jj] - opts_3d_zero[jj];
+        mag_3d_diff += opts_3d_diff[jj]*opts_3d_diff[jj];
+      }
+      //Normalise!
+      mag_3d_diff = sqrt(mag_3d_diff);
+      for(int jj=0; jj<3; ++jj )
+        opts_3d_diff[jj] /= mag_3d_diff;
+
+      //std::cout<<opts_3d_diff<<std::endl;
+
+      for(int jj=0; jj<3; ++jj )
+        out_direction[jj][ii] = opts_3d_diff[jj];
+
+    }
+    out_direction[3][3] = 1;
+
+    //BEWARE of negative determinants - they will flip your axes!
+    double det = fabs(vnl_det( out_direction.GetVnlMatrix() ));
+    for( int ii=0; ii<3; ++ii )
+      for( int jj=0; jj<3; ++jj )
+        out_direction[ii][jj] /= det;
+  }
+
+  itk::Point<double, 3> in_origin3d;
+  for( int ii=0; ii<3; ++ii ) in_origin3d[ii] = in_origin[ii];
+  itk::Point<double, 3> out_origin3d = transform->TransformPoint( in_origin3d );
+  for( int ii=0; ii<3; ++ii ) out_origin[ii] = out_origin3d[ii];
+
+//  std::cout << "   Tfm Offset: " << transform->GetOffset() << std::endl;
+//  std::cout << "   Tfm Centre: " << transform->GetCenter() << std::endl;
+//  std::cout << "Tfm Translate: " << transform->GetTranslation() << std::endl;
+//  std::cout << "   Tfm Rotate: " << transform->GetMatrix() << std::endl;
+
+  //Apply the transform
+  imageChanger->SetOutputDirection( out_direction );
+  imageChanger->SetOutputOrigin( out_origin );
+  imageChanger->Update();
+
+  return imageChanger->GetOutput();
+}
+
+
+itk::InterpolateImageFunction<MirorrPyramidImplement::ImageType>::Pointer
+MirorrPyramidImplement::GetInterpolatorFromString(std::string interpolator_name)
+{
+  /**
+   * The interpolators provided by this function are meant to provide the "best" (YMMV) interpolation
+   * method for a given neighborhood size (thus related to computational cost). Based on:
+   *
+   * Erik H. W. Meijering, Wiro J. Niessen, Josien P. W. Pluim, Max A. Viergever: Quantitative Comparison
+   * of Sinc-Approximating Kernels for Medical Image Interpolation. MICCAI 1999, pp. 210-217
+   */
+  enum EInterpolatorType {NN, LINEAR, BSPLINE, SINC, _ERROR_};
+  EInterpolatorType eInterpolatorType = _ERROR_;
+
+  if (interpolator_name.find("nn") != std::string::npos) {
+    eInterpolatorType = NN;
+  } else if (interpolator_name.find("linear") != std::string::npos) {
+    eInterpolatorType = LINEAR;
+  } else if(interpolator_name.find("bspline") != std::string::npos) {
+    eInterpolatorType = BSPLINE;
+  } else if(interpolator_name.find("sinc") != std::string::npos) {
+    eInterpolatorType = SINC;
+  } else {
+    std::cout << "GetInterpolatorFromString(...) Unspecified or unknown interpolator name. "
+    << "Defaulting to bspline." << std::cout;
+    eInterpolatorType = BSPLINE;
+  }
+
+  itk::InterpolateImageFunction<ImageType>::Pointer final_interpolator;
+
+  switch (eInterpolatorType) {
+    case NN:
+    {
+      final_interpolator = dynamic_cast<itk::InterpolateImageFunction<ImageType> *>(
+          itk::NearestNeighborInterpolateImageFunction<ImageType>::New().GetPointer());
+
+    }
+    break;
+
+    case LINEAR:
+    {
+      final_interpolator = dynamic_cast<itk::InterpolateImageFunction<ImageType> *>(
+          itk::LinearInterpolateImageFunction<ImageType>::New().GetPointer());
+    }
+    break;
+
+    case BSPLINE:
+    {
+      itk::BSplineInterpolateImageFunction<ImageType>::Pointer bspline_interpolator = itk::BSplineInterpolateImageFunction<ImageType>::New();
+      bspline_interpolator->SetSplineOrder(3); //default is 3
+      final_interpolator = dynamic_cast<itk::InterpolateImageFunction<ImageType> *>(bspline_interpolator.GetPointer());
+    }
+    break;
+
+    case SINC:
+    {
+      const unsigned int WindowRadius = 5;
+      typedef itk::Function::WelchWindowFunction<WindowRadius> WindowFunctionType;
+      itk::WindowedSincInterpolateImageFunction<ImageType, WindowRadius, WindowFunctionType>::Pointer sinc_interpolator
+              = itk::WindowedSincInterpolateImageFunction<ImageType, WindowRadius, WindowFunctionType>::New();
+      final_interpolator = dynamic_cast<itk::InterpolateImageFunction<ImageType> *>(sinc_interpolator.GetPointer());
+    }
+    break;
+
+    default:
+      std::cout << "GetInterpolatorFromString(...) Implementation error!" << std::endl;
+      break;
+  }
+
+  return final_interpolator;
+}
+
+
 //template <unsigned int DIMENSION>
 /*typename*/ MirorrPyramidImplement/*<DIMENSION>*/::ImagePointer
 MirorrPyramidImplement/*<DIMENSION>*/
 ::GetResampledImage(
     /*typename*/ TransformType::Pointer transform,
-    bool resample_moving
+    bool resample_moving, std::string interpolator_name
 )
 {
+  //Create the interpolator used for the final resampling
+  itk::InterpolateImageFunction<ImageType>::Pointer final_interpolator = GetInterpolatorFromString(interpolator_name);
+
   //Create an image resampler
   typedef itk::ResampleImageFilter< ImageType, ImageType > ResampleFilterType;
   /*typename*/ ResampleFilterType::Pointer resampler = ResampleFilterType::New();
 
   resampler->SetDefaultPixelValue( 0 );
   resampler->SetUseReferenceImage(true);
+  resampler->SetInterpolator(final_interpolator);
 
   if( resample_moving )
   {

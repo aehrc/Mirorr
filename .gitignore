@@ -7,3 +7,5 @@ drhutils/
 test/vpa005vl_mr_141028_t1fl3dtraisostealth_s1.nii.gz
 test/vpa005vl_pt_141028_bqml_fdopa_ac.nii.gz
 test/vpa005vl/
+test/wip/
+.idea/

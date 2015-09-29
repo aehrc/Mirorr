@@ -102,7 +102,7 @@ endif( USE_OPENCL )
 
 #Compile in np windows stuff developed by Daan Broekhuizen
 if( USE_NPW )
-  message("NPW is not yet available. Coming soon.")
+  #message("NPW is not yet available. Coming soon.")
   #SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_NPW")
   #TARGET_LINK_LIBRARIES(mirorr dbNPWindows GLU)
 endif( USE_NPW )
