@@ -73,7 +73,7 @@ if( USE_OPENCL )
 endif( USE_OPENCL )
 
 #set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-local-typedefs") #Turn off those anoying warning... (most of them won't solve: they're part of ITK V4)
-add_executable( mirorr mirorr.cxx ${VTK_MIRORR_SRC}) 
+add_executable( mirorr mirorr.cxx itkMirorrUtilities.cxx ${VTK_MIRORR_SRC}) 
 target_link_libraries( mirorr
   ${ITK_LIBRARIES}
   boost_program_options boost_filesystem boost_system boost_timer

@@ -235,10 +235,16 @@ itk::PyramidScheduleTuner<DIMENSION>::UpdateVintage() //DRH - To delete once we'
       //Rely on moving sample rate to limit amount of downsampling
       m_FixedSchedule[level][dim] = fixedSampleRate; //std::min( maxFixedSampleRate, fixedSampleRate);
     }
-
-    if( 0 == m_LevelMin ) m_LevelMin = 1;
-    if( 0 == m_LevelMax ) m_LevelMax = m_FixedSchedule.rows();
   }
+
+  if( 0 == m_LevelMin )
+    m_LevelMin = 1;
+  else if( 0 > m_LevelMin )
+    m_LevelMin = m_FixedSchedule.rows() + m_LevelMin;
+  if( 0 == m_LevelMax )
+    m_LevelMax = m_FixedSchedule.rows();
+  else if( 0 > m_LevelMax )
+    m_LevelMax = m_FixedSchedule.rows() + m_LevelMax;
 }
 
 // Return the number of time 'n' that 'base' can be doubled while still being smaller than dimension

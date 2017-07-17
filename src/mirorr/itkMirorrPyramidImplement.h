@@ -90,16 +90,6 @@ public:
   typedef /*typename*/ RegistrationType::TransformType             TransformType;
   typedef /*typename*/ itk::PyramidScheduleTuner<DIMENSION>        PyramidScheduleTunerType;
 
-  //! We also use ITK for a final fine tuning registration */
-  typedef itk::PowellOptimizer                                                   SecondOptimizerType;
-  //typedef itk::MattesMutualInformationImageToImageMetric< ImageType, ImageType > SecondMetricType;
-  typedef itk::ImageToImageMetric< ImageType, ImageType >                        SecondMetricType;
-  typedef itk::MattesMutualInformationImageToImageMetric< ImageType, ImageType > SecondMetricTypeMMI;
-  typedef itk::NormalizedCorrelationImageToImageMetric< ImageType, ImageType >   SecondMetricTypeNCC;
-  typedef itk::GradientDifferenceImageToImageMetric< ImageType, ImageType >      SecondMetricTypeGD;
-  typedef itk::MutualInformationImageToImageMetric< ImageType, ImageType >       SecondMetricTypeMI;
-  typedef itk::ImageRegistrationMethod< ImageType, ImageType >                   SecondRegistrationType;
-
   //! Define a multi-resolution image filter*/
   typedef itk::RecursiveMultiResolutionPyramidImageFilter<ImageType, ImageType > ImagePyramidFilterType;
 
@@ -134,9 +124,6 @@ public:
   void SetMovingImage( ImagePointer in ) { movingImage = in; }
   void SetFixedMask( MaskPointer in ) { fixedMask = in; }
   void SetMovingMask( MaskPointer in ) { movingMask = in; }
-  void SetLevelToChangeMethod( int in ) { m_LevelToChangeMethod = in; }
-  void SetUseBlockMatchingAlgorithm( bool in ) { m_UseBlockMatchingAlgorithm = in; }
-  void SetUseMutualInformationAlgorithm( bool in ) { m_UseMutualInformationAlgorithm = in; }
 
   RegistrationType::Pointer GetRegistrationObject() { return registration; }
 
@@ -147,22 +134,13 @@ public:
   //! interpolator_type is one of nn, linear, bspline, sinc.
   //! sinc use a radius of 5 (10 grid points) and the Welch window function
   ImagePointer GetResampledImage( /*typename*/ TransformType::Pointer transform,
-      bool resampling_moving_image = false, std::string interpolator_name="bspline" );
+                                               ImageType::Pointer image,
+                                               ImageType::Pointer ref_image,
+                                               std::string interpolator_name="bspline" );
   //! Reorient the fixed image into another space defined by the input transform. Does not resample, just update the header.
   ImagePointer GetReorientedImage( /*typename*/ TransformType::Pointer transform,
-      bool resampling_moving_image = false );
-
-  //! Set the metric for the secondary ITK registration
-  void SetSecondaryRegistrationMetricToMMI(); //Mattes mutual information
-  void SetSecondaryRegistrationMetricToNCC(); //Normalized cross-correlation
-  void SetSecondaryRegistrationMetricToGD();  //Gradient difference
-  void SetSecondaryRegistrationMetricToMI();  //Viola and Well mutual information (requires normalized input images)
-
-  //! Request a particular sample rate
-  void SetRequestedSampleRate( double in )
-  { m_RequestedSampleRate = std::max(0.0,std::min(1.0,in)); }
-  double GetRequestedSampleRate()
-  { return m_RequestedSampleRate; }
+    ImageType::Pointer image
+  );
 
 private:
   //! The moving and fixed images */
@@ -181,10 +159,6 @@ private:
   bool halveIterations;
   //! The minimum length of the image in any one dimension
   const double minLength;
-  //! The pyramid level when we switch from aladin registration to ITK
-  int m_LevelToChangeMethod;
-  bool m_UseBlockMatchingAlgorithm;
-  bool m_UseMutualInformationAlgorithm;
 
   //! Pointers to classes that do actual registration
   /*typename*/ InterpolatorType::Pointer         interpolator;
@@ -203,12 +177,6 @@ private:
 
   //! Object for deciding what schedule to use
   PyramidScheduleTunerType::Pointer m_PyramidScheduleTuner;
-
-  //! Extra objects used for final ITK registration
-  SecondOptimizerType::Pointer      m_SecondOptimizer;
-  SecondMetricType::Pointer         m_SecondMetric;
-  SecondRegistrationType::Pointer   m_SecondRegistration;
-  double m_RequestedSampleRate;
 
   void InitializeRegistrationObjet();
 

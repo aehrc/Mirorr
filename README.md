@@ -53,7 +53,7 @@ If you use this program for scientific research, we would appreciate if you coul
 LICENSE
 -------
 
-Copyright (c) 2009-15 CSIRO. All rights reserved.
+Copyright (c) 2009-17 CSIRO. All rights reserved.
 
 For complete copyright, license and disclaimer of warranty information see LICENSE.txt file for details.
 
@@ -65,7 +65,7 @@ PRE-REQUISITES - SUMMARY
 
 The following packages need to be installed to build Mirorr:
  - CMake
- - ITK, v4.X recommanded.
+ - ITK, v4.X recommended.
  - Boost, components: program_options filesystem system
 
 

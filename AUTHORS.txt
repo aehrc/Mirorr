@@ -1,6 +1,6 @@
 David Rivest-Henault : Core development, inverse-consistent implementation, GPU
-Nicholas Dowson      : Initial developpement and support during the inverse-consistent implementation
-Maciej Golebiewski   : Greatly improved GPU implementation
+Nicholas Dowson      : Initial developpement and support during the inverse-consistent implementation. 
+Maciej Golebiewski   : Further improvements to GPU implementation
 Jeremy Coatelen      : First GPU implementation
 Daan Broekhuizen     : NPW implementation
 
