@@ -35,42 +35,6 @@ PURPOSE.  See the above copyright notice for more information.
 #include <itkChangeInformationImageFilter.h>
 
 
-//  The following section of code implements an observer
-//  that will monitor the evolution of the registration process.
-//
-class CommandIterationUpdate2 : public itk::Command
-{
-public:
-  typedef  CommandIterationUpdate2   Self;
-  typedef  itk::Command             Superclass;
-  typedef  itk::SmartPointer<Self>  Pointer;
-  itkNewMacro( Self );
-protected:
-  CommandIterationUpdate2() {};
-public:
-  typedef   MirorrPyramidImplement::SecondOptimizerType  OptimizerType;
-  typedef   const OptimizerType * OptimizerPointer;
-
-  void Execute(itk::Object *caller, const itk::EventObject & event)
-  {
-    Execute( (const itk::Object *)caller, event);
-  }
-
-  void Execute(const itk::Object * object, const itk::EventObject & event)
-  {
-    OptimizerPointer optimizer =
-        dynamic_cast< OptimizerPointer >( object );
-    if( !(itk::IterationEvent().CheckEvent( &event )) )
-    {
-      return;
-    }
-    std::cout << optimizer->GetCurrentIteration() << "   ";
-    std::cout << optimizer->GetValue() << "   ";
-    std::cout << optimizer->GetCurrentPosition() << std::endl;
-  }
-};
-
-
 MirorrPyramidImplement
 ::MirorrPyramidImplement()
 :
@@ -94,20 +58,6 @@ minLength( 32 ) //This ensures that minimum length along
 
   m_PyramidScheduleTuner = PyramidScheduleTunerType::New();
 
-  // By default we do not perform secondary registration
-  m_LevelToChangeMethod = 1;
-  m_UseBlockMatchingAlgorithm = true;
-  m_UseMutualInformationAlgorithm = true;
-
-  // Set up secondary registration (ITK)
-  m_SecondOptimizer    = SecondOptimizerType::New();
-  m_SecondRegistration = SecondRegistrationType::New();
-  m_SecondMetric = 0;
-  this->secondRegistrationType = ERegItkMMI; // Mattes Mutual Information metric by default
-
-  //Default is 10%
-  m_RequestedSampleRate = 0.1;
-
 #ifdef USE_NPW
   registration->SetNPWbins( 32 ); //inputs.NPWbins );
 #ifndef USE_OPENCL
@@ -116,60 +66,6 @@ minLength( 32 ) //This ensures that minimum length along
 #endif
 #endif
 
-}
-
-void
-MirorrPyramidImplement
-::SetSecondaryRegistrationMetricToMMI(){
-  this->secondRegistrationType = ERegItkMMI;
-}
-
-void
-MirorrPyramidImplement
-::SetSecondaryRegistrationMetricToNCC(){
-  this->secondRegistrationType = ERegItkNCC;
-}
-
-void
-MirorrPyramidImplement
-::SetSecondaryRegistrationMetricToGD(){
-  this->secondRegistrationType = ERegItkGD;
-}
-
-void
-MirorrPyramidImplement
-::SetSecondaryRegistrationMetricToMI() {
-  this->secondRegistrationType = ERegItkMI;
-}
-
-void
-MirorrPyramidImplement
-::CreateSecondaryRegistrationMetric()
-{
-  //Secondary ITK registration: metric
-  switch (this->secondRegistrationType)
-  {
-    case ERegItkMMI: {
-      SecondMetricTypeMMI::Pointer p = SecondMetricTypeMMI::New();
-      p->SetNumberOfHistogramBins( 64 );
-      m_SecondMetric = p;
-    } break;
-    case ERegItkNCC: {
-      SecondMetricTypeNCC::Pointer p = SecondMetricTypeNCC::New();
-      m_SecondMetric = p;
-    } break;
-    case ERegItkGD: {
-      SecondMetricTypeGD::Pointer p = SecondMetricTypeGD::New();
-      m_SecondMetric = p;
-    } break;
-    case ERegItkMI: {
-      SecondMetricTypeMI::Pointer p = SecondMetricTypeMI::New();
-      m_SecondMetric = p;
-    } break;
-    default:
-      std::cerr << "Error: Unknown secondary registration type." << std::endl;
-      exit(1);
-  }
 }
 
 void
@@ -193,92 +89,58 @@ MirorrPyramidImplement
   registration->SetTransform( iTransform );
   ParametersType currentParameters( iTransform->GetParameters() );
 
-  const unsigned int n_levels = movingPyramid->GetNumberOfLevels();
-
   //Check change-over level is >= min and <= max
   unsigned int t_min = m_PyramidScheduleTuner->GetCroppedLevel(m_PyramidScheduleTuner->GetLevelMin());
   unsigned int t_max = m_PyramidScheduleTuner->GetCroppedLevel(m_PyramidScheduleTuner->GetLevelMax(),movingPyramid->GetNumberOfLevels());
-
-  //Check on if and when we should change from the block matching method to the ITK method
-  unsigned int t = m_PyramidScheduleTuner->GetCroppedLevel(m_LevelToChangeMethod, t_max);
-
-  if( t<t_min )
-  {
-    std::cout<<"WARNING: Change level ("<<m_LevelToChangeMethod<<"->"<<t<<") < min level ("
-        <<t_min<<"). Setting to min."<<std::endl;
-    t = t_min;
-  }
-  if( t>t_max )
-  {
-    std::cout<<"WARNING: Change level ("<<m_LevelToChangeMethod<<"->"<<t<<") > max level ("
-        <<t_max<<"). Setting to max."<<std::endl;
-    t = t_max;
-  }
-  m_LevelToChangeMethod = t;
-  unsigned int max_block_matching_level = m_LevelToChangeMethod - t_min + 1;
-  if( verbosity >= 1 )
-    std::cout << "Switching after level: " << max_block_matching_level
-	      << " of " << n_levels
-	      << "  BlockMatching?: " << m_UseBlockMatchingAlgorithm
-	      << "  MutualInfo?: " << m_UseMutualInformationAlgorithm
-    << std::endl;
 
   boost::timer::cpu_timer level_timer, total_timer;
 
   //Now run the registration algorithm
   int first_max_iterations = registration->GetMaxIterations();
   double portionMatchesKept = registration->GetPortionMatchesKept();
-  if( m_UseBlockMatchingAlgorithm )
+
+  if( verbosity >= 1 )
+    std::cout << "\nBlock Matching registration start ====== \n" << std::endl;
+  int max_iterations = registration->GetMaxIterations();
+
+  //EXCLUSIVE pyramid level
+  for( unsigned int level=0; level< t_max; ++level )
   {
+    //Get the current images
+    registration->SetMovingImage( movingPyramid->GetOutput(level) );
+    registration->SetFixedImage( fixedPyramid->GetOutput(level) );
+    registration->SetMovingMask(movingMask);
+    registration->SetFixedMask(fixedMask);
+
+    registration->SetMovingImageRegion( movingImage->GetLargestPossibleRegion() );
+    if( level <= 1 ) //For small images, use all available data
+      registration->SetPortionMatchesKept( 1.0 );
+    else
+      registration->SetPortionMatchesKept( portionMatchesKept );
+
+    //Set the parameters
+    registration->GetTransform()->SetParameters( currentParameters );
+
+    //Set the number of iterations
+    if( max_iterations != 0 )
+      registration->SetMaxIterations( max_iterations );
+    if( halveIterations )
+      max_iterations = std::max( 1, max_iterations/2 );
+
+    //Tell user what is going on
     if( verbosity >= 1 )
-      std::cout << "\nPrimary alignment using Block Matching registration =================\n" << std::endl;
-    int max_iterations = registration->GetMaxIterations();
+      DisplayCurrentLevel( level + t_min -1);
 
-    //EXCLUSIVE pyramid level
-    for( unsigned int level=0; level< max_block_matching_level; ++level )
-    {
-      //Get the current images
-      registration->SetMovingImage( movingPyramid->GetOutput(level) );
-      registration->SetFixedImage( fixedPyramid->GetOutput(level) );
-      registration->SetMovingMask(movingMask);
-      registration->SetFixedMask(fixedMask);
+    //Run registration
+    registration->Update();
 
-      registration->SetMovingImageRegion( movingImage->GetLargestPossibleRegion() );
-      if( level <= 1 ) //For small images, use all available data
-        registration->SetPortionMatchesKept( 1.0 );
-      else
-        registration->SetPortionMatchesKept( portionMatchesKept );
+    //Update the current parameters
+    //ParametersType lastParameters(currentParameters);
+    currentParameters = registration->GetLastTransformParameters();
 
-      //Set the parameters
-      registration->GetTransform()->SetParameters( currentParameters );
-
-      //Set the number of iterations
-      if( max_iterations != 0 )
-        registration->SetMaxIterations( max_iterations );
-      if( halveIterations )
-        max_iterations = std::max( 1, max_iterations/2 );
-
-      //Tell user what is going on
-      if( verbosity >= 1 )
-        DisplayCurrentLevel( level + t_min -1);
-
-      //Run registration
-      registration->Update();
-
-      //Update the current parameters
-      //ParametersType lastParameters(currentParameters);
-      currentParameters = registration->GetLastTransformParameters();
-
-      if( verbosity >= 1 ) {
-        DisplayLevelTimings( level, level_timer, total_timer );
-        std::cout << std::endl;
-      }
-
-    }
-  } else {
     if( verbosity >= 1 ) {
-      std::cout << "Skipping block matching step: not requested by the user." << std::endl;
-      std::cout << "  '-> Note: levels " << 1 << " to " << max_block_matching_level << " NOT processed with the block matching algorithm." << std::endl;
+      DisplayLevelTimings( level, level_timer, total_timer );
+      std::cout << std::endl;
     }
   }
 
@@ -289,115 +151,6 @@ MirorrPyramidImplement
 
   //Reset iterations
   registration->SetMaxIterations( first_max_iterations );
-
-  //SECONDARY REGISTRATION =======================================
-  //Set up secondary registration
-  if( m_UseMutualInformationAlgorithm )
-  {
-    this->CreateSecondaryRegistrationMetric();
-    m_SecondRegistration->SetOptimizer(    m_SecondOptimizer );
-    m_SecondRegistration->SetInterpolator( interpolator      );
-    m_SecondRegistration->SetMetric(       m_SecondMetric    );
-
-    if( verbosity >= 1 )
-    {
-      std::cout << "\nRefining using ITK registration =================" << std::endl;
-      CommandIterationUpdate2::Pointer observer = CommandIterationUpdate2::New();
-      m_SecondOptimizer->AddObserver( itk::IterationEvent(), observer );
-    }
-
-#if ITK_VERSION_MAJOR < 4
-    if(movingMask)
-      std::cerr<<"WARNING pre-ITK4 compilations do NOT support masks as spatial "
-          "objects! Please do not specify moving mask."<<std::endl;
-    if(fixedMask)
-      std::cerr<<"WARNING pre-ITK4 compilations do NOT support masks as spatial "
-          "objects! Please do not specify fixed mask."<<std::endl;
-#else
-    MaskObjectType::Pointer fm = MaskObjectType::New();
-    fm->SetImage( movingMask );
-    m_SecondMetric->SetFixedImageMask(fm);
-
-    MaskObjectType::Pointer mm = MaskObjectType::New();
-    mm->SetImage( fixedMask );
-    m_SecondMetric->SetMovingImageMask(mm);
-#endif
-
-    SecondOptimizerType::ScalesType scales( currentParameters.GetNumberOfElements() );
-
-    for( unsigned int level= max_block_matching_level -1; level<n_levels; ++level )
-    {
-      //Get the current images
-      m_SecondRegistration->SetMovingImage( fixedPyramid->GetOutput(level) );
-      m_SecondRegistration->SetFixedImage(  movingPyramid->GetOutput(level) );
-      m_SecondRegistration->SetFixedImageRegion( movingPyramid->GetOutput(level)->GetLargestPossibleRegion() );
-      m_SecondRegistration->SetTransform(    iTransform        );
-      m_SecondRegistration->GetTransform()->SetParameters( currentParameters );
-      m_SecondRegistration->SetInitialTransformParameters( currentParameters );
-
-      //Sampling
-      //m_SecondMetric->SetNumberOfSpatialSamples( 150000 );
-      //m_SecondMetric->ReinitializeSeed( 76926294 );
-      if(m_RequestedSampleRate>=1.0 || m_RequestedSampleRate<=0.0)
-        m_SecondMetric->UseAllPixelsOn();
-      else
-      {
-        double n_samples3 = movingPyramid->GetOutput(level)->GetLargestPossibleRegion().GetNumberOfPixels();
-        double n_samples =  n_samples3 * m_RequestedSampleRate;
-        //double n_samples2 = std::pow(double(m_SecondMetric->GetNumberOfHistogramBins()),0.67)*1000.0;
-        double n_samples2 = std::pow(64.,0.67)*1000.0; //DRH 2013-12-05: this is a lower bound based on a 64bins MI Histogram. No clue about the 0.67 and 1000.0 numbers.
-        n_samples = std::max( n_samples, n_samples2 );
-        if( n_samples < n_samples3 )
-          m_SecondMetric->SetNumberOfSpatialSamples( n_samples );
-        else
-          m_SecondMetric->UseAllPixelsOn();
-      }
-
-      //Set up the optimizer and scaling
-      m_SecondOptimizer->SetMaximize( false );
-      //m_SecondOptimizer->SetStepLength( 100.0 );
-      //m_SecondOptimizer->SetMaximumStepLength( 0.1 ); //MILXREG 2
-      //m_SecondOptimizer->SetMinimumStepLength( 0.01 ); //MILXREG 0.2
-
-      for( unsigned int ii=0, jj=0; ii<scales.GetNumberOfElements(); ++ii )
-        if( ii<scales.GetNumberOfElements()-3 ) //NON-TRANSLATION:
-        {
-          const double max_movement = 5e-2;
-          scales[ii] = 1.0 / max_movement;      //  We may move up 0.05 radians
-        }
-        else                                    //TRANSLATION:
-        {                                       // we may move up to 5 voxels
-          const double max_movement = 5.0;
-
-          scales[ii] = 1.0 /
-              (max_movement * m_SecondRegistration->GetFixedImage()->GetSpacing()[jj]);
-          ++jj;
-        }
-      m_SecondOptimizer->SetScales( scales );
-
-      //Tell user what is going on
-      if( verbosity >= 1 ) DisplayCurrentLevel( level + t_min - 1);
-
-      //Run registration
-#if ITK_VERSION_MAJOR < 4
-      m_SecondRegistration->StartRegistration();
-#else
-      m_SecondRegistration->Update();
-#endif
-      
-
-      //Update the current parameters
-      currentParameters = m_SecondRegistration->GetLastTransformParameters();
-
-      if( verbosity >= 1 ) DisplayLevelTimings( level, level_timer, total_timer );
-    }
-    iTransform->SetParameters( m_SecondRegistration->GetLastTransformParameters() );
-  } else {
-    if( verbosity >= 1 && (max_block_matching_level != n_levels)) {
-      std::cout << "Skipping ITK 'Mutual Information' refinement steps: not requested by the user." << std::endl;
-      std::cout << "  '-> Note: levels " << max_block_matching_level << " to " << n_levels << " NOT processed with ITK." << std::endl;
-    }
-  }
 
   //Extract the optimized parameters
   if(verbosity >= 1)
@@ -496,23 +249,24 @@ MirorrPyramidImplement/*<DIMENSION>*/
 MirorrPyramidImplement/*<DIMENSION>*/
 ::GetReorientedImage(
     /*typename*/ TransformType::Pointer itransform,
-    bool resample_moving
+    //bool resample_moving
+                 ImageType::Pointer image
 )
 {
   typedef itk::ChangeInformationImageFilter< ImageType > ChangeInfoType;
   TransformType::Pointer transform = itransform;
 
   ChangeInfoType::Pointer imageChanger = ChangeInfoType::New();
-  ImageType::Pointer image;
-
-  if( resample_moving )
-  {
-    image = movingImage;
-    itransform = dynamic_cast<TransformType*>(
-        transform->GetInverseTransform().GetPointer() );
-  }
-  else
-    image = fixedImage;
+  //ImageType::Pointer image;
+  //
+  //  if( resample_moving )
+  //  {
+  //    image = movingImage;
+  //    itransform = dynamic_cast<TransformType*>(
+  //        transform->GetInverseTransform().GetPointer() );
+  //  }
+  //  else
+  //    image = fixedImage;
   imageChanger->SetInput( image );
   imageChanger->ChangeDirectionOn();
   imageChanger->ChangeOriginOn();
@@ -580,7 +334,7 @@ MirorrPyramidImplement/*<DIMENSION>*/
         out_direction[jj][ii] = opts_3d_diff[jj];
 
     }
-    out_direction[3][3] = 1;
+    //out_direction[3][3] = 1;
 
     //BEWARE of negative determinants - they will flip your axes!
     double det = fabs(vnl_det( out_direction.GetVnlMatrix() ));
@@ -685,7 +439,10 @@ MirorrPyramidImplement::GetInterpolatorFromString(std::string interpolator_name)
 MirorrPyramidImplement/*<DIMENSION>*/
 ::GetResampledImage(
     /*typename*/ TransformType::Pointer transform,
-    bool resample_moving, std::string interpolator_name
+    //bool resample_moving,
+                 ImageType::Pointer image,
+                 ImageType::Pointer ref_image,
+                 std::string interpolator_name
 )
 {
   //Create the interpolator used for the final resampling
@@ -699,18 +456,21 @@ MirorrPyramidImplement/*<DIMENSION>*/
   resampler->SetUseReferenceImage(true);
   resampler->SetInterpolator(final_interpolator);
 
-  if( resample_moving )
-  {
-    resampler->SetInput( movingImage );
-    resampler->SetReferenceImage(fixedImage);
-    resampler->SetTransform( dynamic_cast<TransformType*>( transform->GetInverseTransform().GetPointer() ) );
-  }
-  else
-  {
-    resampler->SetInput( fixedImage );
-    resampler->SetReferenceImage(movingImage);
-    resampler->SetTransform( transform );
-  }
+//  if( resample_moving )
+//  {
+//    resampler->SetInput( movingImage );
+//    resampler->SetReferenceImage(fixedImage);
+//    resampler->SetTransform( dynamic_cast<TransformType*>( transform->GetInverseTransform().GetPointer() ) );
+//  }
+//  else
+//  {
+//    resampler->SetInput( fixedImage );
+//    resampler->SetReferenceImage(movingImage);
+//    resampler->SetTransform( transform );
+//  }
+  resampler->SetInput( image );
+  resampler->SetReferenceImage(ref_image);
+  resampler->SetTransform( transform );
 
   resampler->Update();
   ImagePointer resampledFixedImage = resampler->GetOutput();

@@ -540,7 +540,7 @@ BlockMatcher<ImageType>
   {
     IndexType baseIndex = baseRegion.GetIndex();
     SizeType baseRegionSize = baseRegion.GetSize();
-    for (int ii = 0; ii < ImageType::ImageDimension; ++ii)
+    for (unsigned int ii = 0; ii < ImageType::ImageDimension; ++ii)
     {
       nNhoods[ii] = (baseRegionSize[ii] - this->m_BlockWidth)
           / this->m_NhoodGap + 1;
@@ -606,7 +606,7 @@ int BlockMatcher<ImageType>
 {
   int nNhoodsTotal = 1;
   SizeType regionSize = matchingRegion.GetSize();
-  for (int ii = 0; ii < ImageType::ImageDimension; ++ii) {
+  for (unsigned int ii = 0; ii < ImageType::ImageDimension; ++ii) {
     nNhoodsTotal *= regionSize[ii]
               / this->m_NhoodGap + 1;
   }
@@ -731,7 +731,7 @@ void BlockMatcher<ImageType>
     searchStart.Fill(0); //to be like a2k
     IndexType searchEnd;
 
-    for( int ii=0; ii<ImageType::ImageDimension; ++ii )
+    for( unsigned int ii=0; ii<ImageType::ImageDimension; ++ii )
       searchEnd[ii] =
           this->m_BaseImage->GetLargestPossibleRegion().GetSize()[ii] -
           this->m_BlockWidth + 1;
@@ -741,7 +741,7 @@ void BlockMatcher<ImageType>
     //Get the start and end of the base iterator to ensure that
     //the nhoods are centred on the central nhood -
     //ITK makes the code look ugly. Sorry
-    for( int ii=0; ii<ImageType::ImageDimension; ++ii )
+    for( unsigned int ii=0; ii<ImageType::ImageDimension; ++ii )
     {
       nhoodStart[ii] = nhoodIterator.GetIndex()[ii] - ((this->m_NhoodWidth)/2) * this->m_BlockGap;
       nhoodEnd[ii] = nhoodStart[ii] + this->m_NhoodWidth * this->m_BlockGap;

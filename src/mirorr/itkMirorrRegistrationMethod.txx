@@ -578,9 +578,6 @@ MirorrRegistrationMethod<TMovingImage,TFixedImage>
   } break;
   }
 
-  //Get minimum image dimension
-  typedef typename TFixedImage::SizeType SizeType;
-
   this->SetupBlockMatcher();
 
   //Initial position

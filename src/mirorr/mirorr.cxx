@@ -55,6 +55,8 @@ PURPOSE.  See the above copyright notice for more information.
 
 #include "itkMirorrPyramidWrapper.h"
 
+#include "itkMirorrUtilities.h"
+
 // By default, a rigid transformation is used.
 //
 // If no starting transformation is specified, the algorithm is
@@ -189,10 +191,7 @@ int main( int argc, char* argv[] )
   algorithm_options.add_options()
     ("pyr-start,a", po::value<int>()->default_value(1),
         "First pyramid level to be processed. (-ve numbers count back from max.)")
-    ("pyr-switch,b", po::value<int>()->default_value(0), //
-        "DEPRECATED Last pyramid level of block matching. Following levels use ITK Mutual "
-        "info. (-ve numbers count back from max. 0==max) DEPRECATED")
-    ("pyr-end,c", po::value<int>()->default_value(0), //
+    ("pyr-end,c", po::value<int>()->default_value(1), //
         "Last pyramid level to be processed. (-ve numbers count back from max. "
         "0==max)")
     ("pyr-num,d", po::value<int>()->default_value(1024),
@@ -203,10 +202,9 @@ int main( int argc, char* argv[] )
     ("resampling-mode", po::value<std::string>()->default_value("middle"), //valid: basic, middle, max-resolution, max-size
           "Inner loop resampling mode: basic, middle, max-resolution, max-size, "
           "fixed, moving")
-    ("no-bm",
-        "Do not use block matching algorithm (primary registration)")
-    ("use-itk",
-        "DEPRECATED Do not use mutual information maximisation (refining / secondary registration) DEPRECATED")
+    ("crop", po::value<std::string>()->default_value(""),
+     "Optionally crop the moving and fixed images on both sides by integer no. voxels using "
+     "convention: \"movingX,movingY,fixedX,fixedY\"")
     ("iterations,n", po::value<int>()->default_value(0),
         "Number of iterations. Set negative to halve iterations each pyramid level")
     ("portion-kept", po::value<double>()->default_value(0.5),
@@ -267,12 +265,6 @@ int main( int argc, char* argv[] )
          "Size of blocks (pixels [=4])")
      ("blockgap", po::value<int>()->default_value(1),
          "Gap between blocks in neighbourhood (search BM space, in pixels [=1])")
-     ("itk-srate,z", po::value<double>()->default_value(0.11),
-         "Sample rate for ITK registration (z). Actual sample rate "
-         "is min(n_pixels,max(z*n_pixels,k*bins^.33)")
-     ("itk-metric", po::value<std::string>()->default_value("mmi"), //
-             "metric used: Mattes mutual information (mmi), normalized cross-correlation (ncc), "
-             "gradient difference (gd), Viola and Well mutual information (mi)")
    ;
 
   all_options.add(general_options).add(algorithm_options);
@@ -414,13 +406,20 @@ int main( int argc, char* argv[] )
     mirorr.SetMovingMaskName( variablesMap["moving-mask"].as<std::string>() );
     mirorr.SetFixedMaskName( variablesMap["fixed-mask"].as<std::string>() );
     }
-
   mirorr.SetDoReorientFixedInARI( variablesMap.count("reorient-fixed") == true );
   mirorr.SetDoReorientMovingInARI( variablesMap.count("reorient-moving") == true );
   if( variablesMap.count("no-centering-init") )
     mirorr.SetDoInitialiseTransformToCentreImages(false);
 
-  //Should we bother applying registration
+  if( variablesMap.count("crop") )
+  {
+    std::vector<unsigned int> crop;
+    itk::util::parseInputToList<unsigned int>(
+            variablesMap["crop"].as<std::string>(), 4, crop);
+    mirorr.SetCropMargins(crop[0], crop[1], crop[2], crop[3]);
+  }
+
+    //Should we bother applying registration
   bool do_not_register = variablesMap.count("do-not-register") > 0;
   mirorr.SetDoNotRegister( do_not_register );
 
@@ -555,51 +554,14 @@ int main( int argc, char* argv[] )
 
   //Control pyramid levels that are used
   int aa = variablesMap["pyr-start"].as<int>();
-  int bb = variablesMap["pyr-switch"].as<int>();
   int cc = variablesMap["pyr-end"].as<int>();
-  bool do_use_itk = variablesMap.count("use-itk") > 0;
   int maxLevel = variablesMap["pyr-num"].as<int>();
   int minBlockLength = variablesMap["pyr-min-size"].as<int>();
-  /*if( cc<bb ) //DRH: this can't be here... does not manage negative number + max level is not known at this point
-  {
-    if( do_use_itk )
-      std::cout<<"WARNING: Switch pyramid level ("<<bb
-      <<") above final level ("<<cc<<"). Increasing final level."<<std::endl;
-    cc = bb;
-  }*/
   mirorr.GetRegistrationPyramidObject().GetPyramidScheduleTuner()->SetMinLength(minBlockLength);
   mirorr.GetRegistrationPyramidObject().GetPyramidScheduleTuner()->SetLevelMin( aa );
   mirorr.GetRegistrationPyramidObject().GetPyramidScheduleTuner()->SetLevelMax( cc );
 
-  //Lock switch level to end pyramid level if we're not using itk (default)
-  if( !do_use_itk )
-    bb = cc;
-  else
-    std::cerr<<"WARNING: the use of itk registration is deprecated and will be removed in later versions."<<std::endl;
-
-  mirorr.GetRegistrationPyramidObject().SetLevelToChangeMethod( bb );
-  mirorr.GetRegistrationPyramidObject().SetUseBlockMatchingAlgorithm( variablesMap.count("no-bm") == 0 );
-  mirorr.GetRegistrationPyramidObject().SetUseMutualInformationAlgorithm( do_use_itk );
-  mirorr.GetRegistrationPyramidObject().SetRequestedSampleRate( variablesMap["itk-srate"].as<double>() );
   mirorr.GetRegistrationPyramidObject().GetPyramidScheduleTuner()->SetMaxLevelNumber(maxLevel);
-
-  //Read in secondary ITK registration metric type
-  {
-    std::string secondaryMetric  = variablesMap["itk-metric"].as<std::string>();
-    if ( secondaryMetric == "mmi" ) {
-      mirorr.GetRegistrationPyramidObject().SetSecondaryRegistrationMetricToMMI();
-    } else if ( secondaryMetric == "ncc" ) {
-      mirorr.GetRegistrationPyramidObject().SetSecondaryRegistrationMetricToNCC();
-    } else if ( secondaryMetric == "gd" ) {
-      mirorr.GetRegistrationPyramidObject().SetSecondaryRegistrationMetricToGD();
-    } else if ( secondaryMetric == "mi" ) {
-      mirorr.GetRegistrationPyramidObject().SetSecondaryRegistrationMetricToMI();
-    } else {
-      std::cerr << "Error: Unknown itk-metric ";
-      std::cerr << "possible options are: mmi, ncc, gd, and mi." << std::endl;
-      return -1;
-    }
-  }
 
   //Read bottom level. This should be at least 0
   mirorr.GetRegistrationPyramidObject().GetRegistrationObject()->SetPortionMatchesKept(

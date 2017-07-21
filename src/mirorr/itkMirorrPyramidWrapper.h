@@ -41,6 +41,9 @@ PURPOSE.  See the above copyright notice for more information.
 #include <itkTransformBase.h>
 #include <itkResampleImageFilter.h>
 #include <vnl/vnl_cross.h>
+#include <itkMatrixOffsetTransformBase.h>
+#include "itkMirorrUtilities.h"
+
 #include "itkMirorrPyramidImplement.h"
 
 namespace itk
@@ -99,6 +102,11 @@ public:
     do_force_resample_fixed = false;
     do_force_resample_moving = false;
     do_initialise_tfm_to_centre_images = true;
+    crop_moving_X_vx = crop_moving_Y_vx = crop_fixed_X_vx = crop_fixed_Y_vx = 0;
+    movingToIdentityTfm = itk::AffineTransform<double,3>::New();
+    movingToIdentityTfm->SetIdentity();
+    fixedToIdentityTfm = itk::AffineTransform<double,3>::New();
+    fixedToIdentityTfm->SetIdentity();
   }
 
   MirorrType & GetRegistrationPyramidObject() { return mirorr; }
@@ -124,6 +132,15 @@ public:
   //! Do we attempt to reorient the image in the ARI direction?
   void SetDoReorientFixedInARI(bool in ) {do_reorient_fixed = in;}
   void SetDoReorientMovingInARI(bool in ) {do_reorient_moving = in;}
+  //! Precrop images by fixed no. voxels prior to registration
+  void SetCropMargins(unsigned int _moving_X_vx, unsigned int _moving_Y_vx,
+                      unsigned int _fixed_X_vx, unsigned int _fixed_Y_vx )
+  {
+    crop_moving_X_vx = _moving_X_vx;
+    crop_moving_Y_vx = _moving_Y_vx;
+    crop_fixed_X_vx = _fixed_X_vx;
+    crop_fixed_Y_vx = _fixed_Y_vx;
+  }
 
   //!Name of file string fixed image once it has been registered to moving
   //!image. If empty - no image is returned.
@@ -212,12 +229,17 @@ private:
   bool do_force_resample_fixed;
   bool do_force_resample_moving;
 
+  //! Maount to crop input images by in voxels
+  unsigned int crop_moving_X_vx, crop_moving_Y_vx, crop_fixed_X_vx, crop_fixed_Y_vx;
+
   bool do_initialise_tfm_to_centre_images;
 
   ImagePointer movingImage;
   ImagePointer fixedImage;
   MaskPointer movingMask;
   MaskPointer fixedMask;
+
+  itk::AffineTransform<double,3>::Pointer fixedToIdentityTfm, movingToIdentityTfm;
 
   //!Name of file string fixed image once it has been registered to moving
   //!image. If empty - no image is returned.
