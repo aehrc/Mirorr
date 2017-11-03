@@ -143,6 +143,26 @@ cd ../test;
 ```
 
 
+NIPYPE INTERFACE
+----------------
+
+To install the Python [Nipype](http://nipype.readthedocs.io/en/latest/)
+interface, use (from within the project directory):
+
+```bash
+pip3 install --user ./python
+```
+
+To use:
+
+```python
+from mirorr.interface import Mirorr
+reg_interface = Mirorr(moving_image='moving.nii', fixed_image='fixed.nii')
+reg_interface.cmdline
+# 'mirorr --fixed /path/to/fixed.nii --moving /path/to/moving.nii --last-tfm /path/to/rigid.tfm --tfm-type rigid'
+```
+
+
 FREQUENTLY ASKED QUESTIONS (FAQ)
 --------------------------------
 
