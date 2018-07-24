@@ -25,6 +25,7 @@ PURPOSE.  See the above copyright notice for more information.
 #include "itkBlockMatcher.h"
 #include "itkBlockMatcherThreaded.h"
 #include "itkEuler3DTransform.h"
+#include "itkIOUtils.h"
 
 #ifdef USE_OPENCL
   #include "itkBlockMatcherGPU.h"

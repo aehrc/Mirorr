@@ -385,7 +385,7 @@ MirorrPyramidImplement::GetInterpolatorFromString(std::string interpolator_name)
     eInterpolatorType = SINC;
   } else {
     std::cout << "GetInterpolatorFromString(...) Unspecified or unknown interpolator name. "
-    << "Defaulting to bspline." << std::cout;
+    << "Defaulting to bspline." << std::endl;
     eInterpolatorType = BSPLINE;
   }
 
