@@ -69,14 +69,14 @@ if( USE_NPW )
 endif( USE_NPW )
 
 if( USE_OPENCL )
-  include_directories(/usr/local/cuda/include/)
+	include_directories(${OPENCL_INCLUDE_DIRS})
 endif( USE_OPENCL )
 
 #set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-local-typedefs") #Turn off those anoying warning... (most of them won't solve: they're part of ITK V4)
 add_executable( mirorr mirorr.cxx itkMirorrUtilities.cxx ${VTK_MIRORR_SRC}) 
 target_link_libraries( mirorr
   ${ITK_LIBRARIES}
-  boost_program_options boost_filesystem boost_system boost_timer
+  ${Boost_LIBRARIES}
 )
 
 if (USE_MIRORR_NON_SYSTEM_BOOST)
@@ -87,8 +87,9 @@ if (USE_MIRORR_NON_SYSTEM_BOOST)
   find_package(Boost 1.49.0 REQUIRED COMPONENTS program_options filesystem system)
   if(Boost_FOUND)
     include_directories(${Boost_INCLUDE_DIRS})
+    link_directories(${Boost_LIBRARY_DIRS})
     target_link_libraries( mirorr ${Boost_LIBRARIES} )
-    set(CMAKE_EXE_LINKER_FLAGS " -Wl,-rpath-link,${Boost_LIBRARY_DIRS} -Wl,-rpath,${Boost_LIBRARY_DIRS}")
+    # set(CMAKE_EXE_LINKER_FLAGS " -Wl,-rpath-link,${Boost_LIBRARY_DIRS} -Wl,-rpath,${Boost_LIBRARY_DIRS}")
   else(Boost_FOUND)
     message("Boost was not found. Expect linking errors.")
   endif(Boost_FOUND)
