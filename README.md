@@ -133,6 +133,15 @@ cmake .. -DCMAKE_BUILD_TYPE=Release;
 make
 ```
 
+On newer OSs, if the build complains about missing ITK functions or 
+`This file requires compiler and library support for the ISO C++ 2011 standard.`
+`This support must be enabled with the -std=c++11 or -std=gnu++11 compiler`, try updating the
+C++ version as follows:
+
+```bash
+cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_STANDARD=11;
+```
+
 
 TESTING THE BUILD
 -----------------
